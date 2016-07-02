@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE cmdbm SYSTEM "cmdbm_config.dtd">
+<Configuration>
+    <Databases>
+        <ODBC id="odbcName" charset="utf-8">
+            <DSN></DSN>
+            <User></User>
+            <Password></Password>
+            <Pool confRef="basePoolConfig" />
+            <Mappers>
+                <MapperSet basePath="" filePattern="" />
+            </Mappers>
+        </ODBC>
+        <Oracle id="oracleName" charset="utf-8">
+            <TNSName></TNSName>
+            <User></User>
+            <Password></Password>
+            <Pool confRef="basePoolConfig" />
+            <Mappers>
+                <MapperSet basePath="" filePattern="" />
+            </Mappers>
+        </Oracle>
+        <MySQL id="mysqlName" charset="utf-8">
+            <Host>localhost</Host>
+            <Port>3306</Port>
+            <Database></Database>
+            <User></User>
+            <Password></Password>
+            <Pool confRef="basePoolConfig" />
+            <Mappers>
+                <MapperSet basePath="" filePattern="" />
+            </Mappers>
+        </MySQL>
+        <SQLite id="sqliteName">
+            <File></File>
+            <Pool confRef="basePoolConfig" />
+            <Mappers>
+                <MapperSet basePath="" filePattern="" />
+            </Mappers>
+        </SQLite>
+        <PgSql id="pgsqlName" charset="utf-8">
+            <Host>localhost</Host>
+            <Port>5432</Port>
+            <Database></Database>
+            <User></User>
+            <Password></Password>
+            <Pool confRef="basePoolConfig" />
+            <Mappers>
+                <MapperSet basePath="" filePattern="" />
+            </Mappers>
+        </PgSql>
+		<Custom id="custname">
+			<Param key="key1">value1</Param>
+			<Param key="key2">value2</Param>
+			<Param key="key3">value3</Param>
+		</Custom>
+    </Databases>
+    <Logging>
+        <QueryId show="true" />
+        <Query show="true" />
+        <Result show="true" />
+    </Logging>
+    <PoolConfigurations>
+		<PoolConfig id="basePoolConfig" pingInterval="30"
+				pingTest="true" testOnBorrow="true">
+            <InitCount>5</InitCount>
+            <MaxCount>100</MaxCount>
+            <TestSql>select 1 from dual</TestSql>
+        </PoolConfig>
+    </PoolConfigurations>
+</Configuration>

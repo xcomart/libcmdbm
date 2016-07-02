@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!ELEMENT mapper ((sql|select|update|delete|insert)*)>
+<!ATTLIST mapper
+		namespace CDATA #REQUIRED>>
+
+<!ELEMENT sql ((#PCDATA|include|bind|trim|foreach|where|set|choose|if|selectKey)*)>
+<!ATTLIST sql
+		id CDATA #REQUIRED>
+
+<!ELEMENT select ((#PCDATA|include|bind|trim|foreach|where|set|choose|if|selectKey)*)>
+<!ATTLIST select
+		id CDATA #REQUIRED
+		resultType (map|value) #IMPLIED
+		fetchSize CDATA #IMPLIED>
+
+<!ELEMENT update ((#PCDATA|include|bind|trim|foreach|where|set|choose|if|selectKey)*)>
+<!ATTLIST update
+		id CDATA #REQUIRED>
+
+<!ELEMENT delete ((#PCDATA|include|bind|trim|foreach|where|set|choose|if|selectKey)*)>
+<!ATTLIST delete
+		id CDATA #REQUIRED>
+
+<!ELEMENT insert ((#PCDATA|include|bind|trim|foreach|where|set|choose|if|selectKey)*)>
+<!ATTLIST insert
+		id CDATA #REQUIRED>
+
+<!ELEMENT selectKey ((#PCDATA|include|bind|trim|foreach|where|set|choose|if|selectKey)*)>
+<!ATTLIST selectKey
+		keyProperty CDATA #IMPLIED
+		order (BEFORE|AFTER) #IMPLIED>
+
+<!ELEMENT include EMPTY>
+<!ATTLIST include
+		refid CDATA #IMPLIED>
+
+<!ELEMENT bind EMPTY>
+<!ATTLIST bind
+		key CDATA #REQUIRED
+		value CDATA #REQUIRED>
+		
+<!ELEMENT trim ((#PCDATA|include|bind|trim|foreach|where|set|choose|if|selectKey)*)>
+<!ATTLIST trim
+		prefix CDATA #IMPLIED
+		prefixOverrides CDATA #IMPLIED
+		suffix CDATA #IMPLIED
+		suffixOverrides CDATA #IMPLIED>
+		
+<!ELEMENT foreach ((#PCDATA|include|bind|trim|foreach|where|set|choose|if|selectKey)*)>
+<!ATTLIST foreach
+		collection CDATA #IMPLIED
+		item CDATA #IMPLIED
+		index CDATA #IMPLIED
+		open CDATA #IMPLIED
+		close CDATA #IMPLIED
+		separator CDATA #IMPLIED>
+
+<!ELEMENT where ((#PCDATA|include|bind|trim|foreach|where|set|choose|if|selectKey)*)>
+<!ELEMENT set ((#PCDATA|include|bind|trim|foreach|where|set|choose|if|selectKey)*)>
+
+<!ELEMENT choose (when*, otherwise?)>
+<!ELEMENT when ((#PCDATA|include|bind|trim|foreach|where|set|choose|if|selectKey)*)>
+<!ATTLIST when
+		test CDATA #IMPLIED>
+<!ELEMENT otherwise ((#PCDATA|include|bind|trim|foreach|where|set|choose|if|selectKey)*)>
+
+<!ELEMENT if ((#PCDATA|include|bind|trim|foreach|where|set|choose|if|selectKey)*)>
+<!ATTLIST if
+		test CDATA #IMPLIED>
+

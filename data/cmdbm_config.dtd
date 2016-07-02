@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!ELEMENT Configuration (Databases Logging PoolConfigurations)>
+<!ELEMENT Databases ((ODBC|Oracle|MySQL|SQLite|PgSql|Custom)+)>
+
+<!ELEMENT ODBC (DSN? Database? User? Password? Param* Pool Mappers)>
+<!ATTLIST ODBC
+    id ID #REQUIRED
+    charset CDATA #REQUIRED
+    dsn CDATA #IMPLIED
+    database CDATA #IMPLIED
+    user CDATA #IMPLIED
+    password CDATA #IMPLIED>
+<!ELEMENT DSN (#PCDATA)>
+<!ELEMENT User (#PCDATA)>
+<!ELEMENT Password (#PCDATA)>
+<!ELEMENT Database (#PCDATA)>
+<!ELEMENT Pool (PingInterval? PingTest? TestOnBorrow? InitCount? MaxCount? TestSql?)>
+<!ATTLIST Pool
+    confRef IDREF #REQUIRED
+    pingInterval CDATA #IMPLIED
+    pingTest (true|false) #IMPLIED
+    testOnBorrow (true|false) #IMPLIED
+    initCount CDATA #IMPLIED
+    maxCount CDATA #IMPLIED
+    testSql CDATA #IMPLIED>
+<!ELEMENT Mappers ((Mapper|MapperSet)+)>
+<!ATTLIST Mappers monitorInterval CDATA #IMPLIED>
+<!ELEMENT Mapper (#PCDATA)>
+<!ELEMENT MapperSet (#PCDATA)>
+<!ATTLIST MapperSet
+    basePath CDATA #REQUIRED
+    filePattern CDATA #REQUIRED
+	recursive (true|false) #IMPLIED>
+
+<!ELEMENT Oracle (TNSName? Database? User? Password? Param* Pool Mappers)>
+<!ATTLIST Oracle
+    id ID #REQUIRED
+    charset CDATA #REQUIRED
+    tnsname CDATA #IMPLIED
+    database CDATA #IMPLIED
+    user CDATA #IMPLIED
+    password CDATA #IMPLIED>
+<!ELEMENT TNSName (#PCDATA)>
+
+<!ELEMENT MySQL (Host? Port? Database? User? Password? Param* Pool Mappers)>
+<!ATTLIST MySQL
+    id ID #REQUIRED
+    charset CDATA #REQUIRED
+    host CDATA #IMPLIED
+    port CDATA #IMPLIED
+    database CDATA #IMPLIED
+    user CDATA #IMPLIED
+    password CDATA #IMPLIED>
+<!ELEMENT Host (#PCDATA)>
+<!ELEMENT Port (#PCDATA)>
+
+<!ELEMENT SQLite (File? Param* Pool Mappers)>
+<!ATTLIST SQLite
+    id ID #REQUIRED
+    file CDATA #IMPLIED
+    serialize (true|false) #IMPLIED>
+<!ELEMENT File (#PCDATA)>
+
+<!ELEMENT PgSql (Host? Port? Database? User? Password? Param* Pool Mappers)>
+<!ATTLIST PgSql
+    id ID #REQUIRED
+    charset CDATA #REQUIRED
+    host CDATA #IMPLIED
+    port CDATA #IMPLIED
+    database CDATA #IMPLIED
+    user CDATA #IMPLIED
+    password CDATA #IMPLIED>
+
+<!ELEMENT Custom (Param*)>
+<!ATTLIST Custom
+    id ID #REQUIRED
+    sopath CDATA #REQUIRED
+    charset CDATA #REQUIRED>
+<!ELEMENT Param>
+<!ATTLIST Param
+	key CDATA #REQUIRED
+	value CDATA #REQUIRED>
+
+<!ELEMENT PoolConfigurations (PoolConfig+)>
+<!ELEMENT PoolConfig (PingInterval? PingTest? TestOnBorrow? InitCount? MaxCount? TestSql?)>
+<!ATTLIST Pool
+    id ID #REQUIRED
+    pingInterval CDATA #IMPLIED
+    pingTest (true|false) #IMPLIED
+    testOnBorrow (true|false) #IMPLIED
+    initCount CDATA #IMPLIED
+    maxCount CDATA #IMPLIED
+    testSql CDATA #IMPLIED>
+
+<!ELEMENT Logging (QueryId? Query? Result?)>
+<!ELEMENT QueryId (#PCDATA)> <!ATTLIST QueryId show (true|false) #IMPLIED>
+<!ELEMENT Query (#PCDATA)> <!ATTLIST Query show (true|false) #IMPLIED>
+<!ELEMENT Result (#PCDATA)> <!ATTLIST Result show (true|false) #IMPLIED>

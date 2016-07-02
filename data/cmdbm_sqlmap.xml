@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap SYSTEM "easydbc_sqlmap.dtd">
+<sqlMap namespace="MyProject.MyNamespace">
+	<sql id="selCols">
+
+	</sql>
+	<select id="select" resultType="map">
+	</select>
+</sqlMap>
