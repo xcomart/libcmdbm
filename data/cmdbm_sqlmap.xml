@@ -1,9 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE sqlMap SYSTEM "easydbc_sqlmap.dtd">
-<sqlMap namespace="MyProject.MyNamespace">
-	<sql id="selCols">
-
-	</sql>
-	<select id="select" resultType="map">
-	</select>
-</sqlMap>
+<mapper namespace="TestNamespace">
+    <sql id="selCols">
+        col1, col2
+    </sql>
+    <select id="select">
+        select <include refid="selCols" />
+        from t_test
+    </select>
+</mapper>
