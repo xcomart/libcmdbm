@@ -3,6 +3,31 @@ CONFIG += console
 CONFIG -= app_bundle
 CONFIG -= qt
 
+DEFINES += CMDBM_LIBRARY
+
+BUILD_DIR = ../build
+COPY_CMD = cp
+LIB_DIR = lib
+
+win32 {
+    LIB_DIR = bin
+#    COPY_CMD = copy
+}
+
+CONFIG(debug, debug|release) {
+    DEFINES += DEBUG
+    DESTDIR = $$BUILD_DIR/$$LIB_DIR/debug
+}
+
+CONFIG(release, debug|release) {
+    DEFINES += DEBUG
+    DESTDIR = $$BUILD_DIR/$$LIB_DIR/release
+}
+
+INCLUDEPATH += $$BUILD_DIR/include
+
+LIBS += -L$DESTDIR -lcmutils
+
 SOURCES += \
     src/base.c \
     src/connection.c \
@@ -28,3 +53,9 @@ DISTFILES += \
     data/cmdbm_config.dtd \
     data/cmdbm_sqlmap.dtd \
     README.md
+
+INCLUDE_TARGET.COMMANDS = $$COPY_CMD ../libcmdbm/src/libcmdbm.h $$BUILD_DIR/include
+
+QMAKE_EXTRA_TARGETS += INCLUDE_TARGET
+
+POST_TARGETDEPS += INCLUDE_TARGET
