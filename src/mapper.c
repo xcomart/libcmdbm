@@ -697,7 +697,7 @@ CMDBM_STATIC CMUTIL_Bool CMDBM_MapperRebuildText(
 CMUTIL_Bool CMDBM_MapperRebuildItem(CMUTIL_Map *queries, CMUTIL_XmlNode *node)
 {
 	CMDBM_NodeType ntype = CMDBM_MapperGetNodeType(node);
-	if (ntype == CMUTIL_XmlNodeTag) {
+    if (ntype == CMDBM_NTXmlTag) {
 		return CMDBM_MapperRebuildTag(queries, node);
 	} else {
 		return CMDBM_MapperRebuildText(queries, node);

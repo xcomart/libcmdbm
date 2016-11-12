@@ -351,7 +351,6 @@ CMDBM_STATIC void CMDBM_DatabaseMapperReloader(void *data)
 		// compare file lists
 		for (i=0; !ischanged && i<CMUTIL_CALL(flist, Count); i++) {
 			CMUTIL_File *f = CMUTIL_CALL(flist, GetAt, i);
-			CMUTIL_Bool isfound = CMUTIL_False;
 			for (j=0; j<CMUTIL_CALL(mset->mfileset, GetSize); j++) {
 				CMDBM_MapperFile *mf = (CMDBM_MapperFile*)
 						CMUTIL_CALL(mset->mfileset, GetAt, j);
@@ -360,7 +359,6 @@ CMDBM_STATIC void CMDBM_DatabaseMapperReloader(void *data)
 				if (strcmp(CMUTIL_CALL(f, GetFullPath), mf->fpath) == 0) {
 					if (CMUTIL_CALL(f, ModifiedTime) != mf->lastupdt)
 						ischanged = CMUTIL_True;
-					isfound = CMUTIL_True;
 					break;
 				}
 			}

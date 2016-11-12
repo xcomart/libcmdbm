@@ -1,7 +1,7 @@
 
 #include "functions.h"
 
-//CMUTIL_LogDefine("cmdbm.connection")
+CMUTIL_LogDefine("cmdbm.connection")
 
 typedef struct CMDBM_Connection_Internal {
 	CMDBM_Connection		base;
@@ -114,6 +114,7 @@ CMDBM_STATIC void CMDBM_ConnectionClose(
 {
 	CMDBM_Connection_Internal *iconn = (CMDBM_Connection_Internal*)conn;
 	CMUTIL_CALL(iconn->db, ReleaseConnection, conn);
+    CMLogTrace("connection closed");
 }
 
 CMDBM_STATIC void CMDBM_ConnectionCloseReal(
@@ -177,5 +178,6 @@ CMDBM_Connection *CMDBM_ConnectionCreate(CMDBM_DatabaseEx *db, void *rawconn)
 	res->modif = CMUTIL_CALL(db, GetModuleIF);
 	res->initres = CMUTIL_CALL(db, GetInitResult);
 	res->connection = rawconn;
+    CMLogTrace("connection created");
 	return (CMDBM_Connection*)res;
 }

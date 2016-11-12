@@ -1,6 +1,5 @@
-TEMPLATE = app
-CONFIG += console
-CONFIG -= app_bundle
+TEMPLATE = lib
+TARGET = cmdbm
 CONFIG -= qt
 
 DEFINES += CMDBM_LIBRARY
@@ -26,7 +25,7 @@ CONFIG(release, debug|release) {
 
 INCLUDEPATH += $$BUILD_DIR/include
 
-LIBS += -L$DESTDIR -lcmutils
+LIBS += -L$$DESTDIR -lcmutils
 
 SOURCES += \
     src/base.c \
