@@ -547,8 +547,10 @@ CMDBM_Database *CMDBM_DatabaseCreateCustom(
 	memcpy(res, &g_cmdbm_databse, sizeof(CMDBM_DatabaseEx));
 	res->sourceid = CMStrdup(sourceid);
 	res->dbcs = CMStrdup(dbcharset);
-	res->mfiles = CMUTIL_MapCreateEx(64, CMDBM_MapperFileDestroy);
-	res->mfsets = CMUTIL_MapCreateEx(64, CMDBM_MapperFileSetDestroy);
+    res->mfiles = CMUTIL_MapCreateEx(
+                64, CMUTIL_False, CMDBM_MapperFileDestroy);
+    res->mfsets = CMUTIL_MapCreateEx(
+                64, CMUTIL_False, CMDBM_MapperFileSetDestroy);
 	res->modif = CMAlloc(sizeof(CMDBM_ModuleInterface));
 	memcpy(res->modif, modif, sizeof(CMDBM_ModuleInterface));
 	res->queries = CMUTIL_MapCreate();

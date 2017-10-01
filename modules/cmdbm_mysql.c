@@ -1,12 +1,7 @@
 
 #ifdef CMDBM_MYSQL
 
-#if defined(DEBUG)
-# include "functions.h"
-#else
-# include "libcmdbm.h"
-# define CMDBM_STATIC	static
-#endif
+#include "functions.h"
 
 CMUTIL_LogDefine("cmdbm.module.mysql")
 
@@ -210,7 +205,7 @@ CMDBM_STATIC void CMDBM_MySQL_BindString(
 	if (out) CMUTIL_CALL(sval, AddNString, buf, 4096);
 	bind->buffer_type = MYSQL_TYPE_VARCHAR;
 	bind->buffer = (void*)CMUTIL_CALL(sval, GetCString);
-	bind->buffer_length = 4096;
+    bind->buffer_length = CMUTIL_CALL(sval, GetSize);
 	CMUTIL_UNUSED(bufarr);
 }
 
@@ -378,25 +373,25 @@ CMDBM_STATIC void CMDBM_MySQL_ResultAssignDouble(
 CMDBM_STATIC void CMDBM_MySQL_ResultAssignString(
 		CMDBM_MySQL_FieldInfo *finfo, MYSQL_STMT *stmt, CMUTIL_JsonObject *row)
 {
-	MYSQL_BIND *bind = &(finfo->bind[finfo->index]);
+    MYSQL_BIND *bind = finfo->bind;
 	if (finfo->length > 0) {
-//		int ival;
-//		char *buffer = CMAlloc(finfo->length*2+1);
-//		bind->buffer = buffer;
-//		bind->buffer_length = finfo->length*2;
-//		memset(buffer, 0x0, finfo->length*2+1);
-//		ival = mysql_stmt_fetch_column(stmt, finfo->bind, finfo->index, 0);
-//		if (ival != 0) {
-//			MYSQL_LOGERROR(finfo->sess, "execute statement failed.");
-//		} else {
-//			CMUTIL_CALL(row, PutString, finfo->name, buffer);
-//		}
-//		// reset buffer
-//		CMFree(buffer);
-//		bind->buffer = NULL;
-//		bind->buffer_length = 0;
-		CMUTIL_CALL(row, PutString, finfo->name, (char*)bind->buffer);
-		memset(bind->buffer, 0x0, 4096);
+        int ival;
+        char *buffer = CMAlloc(finfo->length*2+1);
+        bind->buffer = buffer;
+        bind->buffer_length = finfo->length*2;
+        memset(buffer, 0x0, finfo->length*2+1);
+        ival = mysql_stmt_fetch_column(stmt, finfo->bind, finfo->index, 0);
+        if (ival != 0) {
+            MYSQL_LOGERROR(finfo->sess, "mysql_stmt_fetch_column() failed.");
+        } else {
+            CMUTIL_CALL(row, PutString, finfo->name, buffer);
+        }
+        // reset buffer
+        CMFree(buffer);
+        bind->buffer = NULL;
+        bind->buffer_length = 0;
+//		CMUTIL_CALL(row, PutString, finfo->name, (char*)bind->buffer);
+//		memset(bind->buffer, 0x0, 4096);
 	} else {
 		CMUTIL_CALL(row, PutNull, finfo->name);
 	}
@@ -484,16 +479,15 @@ CMDBM_STATIC MYSQL_STMT *CMDBM_MySQL_SelectBase(
 				// treat as string
 				finfo->fassign = CMDBM_MySQL_ResultAssignString;
 				b->buffer_type = MYSQL_TYPE_STRING;
-				b->buffer = CMAlloc(4096);
-				memset(b->buffer, 0x0, 4096);
-				b->buffer_length = 4096;
+                b->buffer = NULL;
+                b->buffer_length = 0;
 				finfo->jtype = CMUTIL_JsonValueString;
 				break;
 			}
 			b->length = &(finfo->length);
 			b->is_null = &(finfo->isnull);
 			b->error = &(finfo->error);
-			finfo->bind = *resbuf;
+            finfo->bind = b;
 			finfo->sess = sess;
 			CMUTIL_CALL(fields, Add, finfo);
 		}
@@ -532,7 +526,7 @@ CMDBM_STATIC void CMDBM_MySQL_FieldDestroy(void *data)
 	CMDBM_MySQL_FieldInfo *finfo = (CMDBM_MySQL_FieldInfo*)data;
 	if (finfo) {
 		if (finfo->jtype == CMUTIL_JsonValueString && finfo->bind->buffer)
-			CMFree(finfo->bind[finfo->index].buffer);
+            CMFree(finfo->bind->buffer);
 		CMFree(finfo);
 	}
 }
@@ -541,7 +535,6 @@ CMDBM_STATIC CMUTIL_JsonObject *CMDBM_MySQL_GetRow(
 		void *initres, void *connection,
 		CMUTIL_String *query, CMUTIL_JsonArray *binds, CMUTIL_JsonObject *outs)
 {
-	int fieldcnt;
 	CMDBM_MySQLSession *sess = (CMDBM_MySQLSession*)connection;
 	CMUTIL_Array *fields = CMUTIL_ArrayCreateEx(
 				10, NULL, CMDBM_MySQL_FieldDestroy);
@@ -553,7 +546,6 @@ CMDBM_STATIC CMUTIL_JsonObject *CMDBM_MySQL_GetRow(
 	CMUTIL_Bool succ = CMUTIL_False;
 
 	if (stmt) {
-		fieldcnt = CMUTIL_CALL(fields, GetSize);
 		if (mysql_stmt_fetch(stmt) != 0) {
 			MYSQL_LOGERROR(sess, "cannot fetch row.");
 			goto FAILEDPOINT;
@@ -608,7 +600,6 @@ CMDBM_STATIC CMUTIL_JsonArray *CMDBM_MySQL_GetList(
 		void *initres, void *connection,
 		CMUTIL_String *query, CMUTIL_JsonArray *binds, CMUTIL_JsonObject *outs)
 {
-	int fieldcnt;
 	CMDBM_MySQLSession *sess = (CMDBM_MySQLSession*)connection;
 	CMUTIL_Array *fields = CMUTIL_ArrayCreateEx(
 				10, NULL, CMDBM_MySQL_FieldDestroy);
@@ -621,7 +612,6 @@ CMDBM_STATIC CMUTIL_JsonArray *CMDBM_MySQL_GetList(
 
 	if (stmt) {
 		int rcnt = 0, rval;
-		fieldcnt = CMUTIL_CALL(fields, GetSize);
 		while ((rval = mysql_stmt_fetch(stmt)) == 0 ||
 			   rval == MYSQL_DATA_TRUNCATED) {
 			CMUTIL_JsonObject *obj = CMUTIL_JsonObjectCreate();

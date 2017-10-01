@@ -1,12 +1,7 @@
 
 #ifdef CMDBM_ORACLE
 
-#if defined(DEBUG)
-# include "functions.h"
-#else
-# include "libcmdbm.h"
-# define CMDBM_STATIC	static
-#endif
+#include "functions.h"
 
 CMUTIL_LogDefine("cmdbm.module.oracle")
 
