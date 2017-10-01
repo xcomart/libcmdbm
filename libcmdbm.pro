@@ -3,6 +3,12 @@ TARGET = cmdbm
 CONFIG -= qt
 
 DEFINES += CMDBM_LIBRARY
+CONFIG += CMDBM_MYSQL
+CONFIG += CMDBM_ORACLE
+
+!win32-msvc* {
+    CONFIG += link_pkgconfig
+}
 
 BUILD_DIR = ../build
 COPY_CMD = cp
@@ -10,20 +16,35 @@ LIB_DIR = lib
 
 win32 {
     LIB_DIR = bin
-#    COPY_CMD = copy
+    win32-msvc* {
+        COPY_CMD = copy
+    }
 }
 
+contains(CONFIG, CMDBM_MYSQL) {
+    DEFINES += CMDBM_MYSQL
+    PKGCONFIG += mysqlclient
+}
+
+contains(CONFIG, CMDBM_ORACLE) {
+    DEFINES += CMDBM_ORACLE
+    ORACLE_HOME = $$(ORACLE_HOME)
+    INCLUDEPATH += $$ORACLE_HOME/sdk/include
+    LIBS += -L$$ORACLE_HOME
+    win32 {
+        LIBS += oci
+    } else {
+        LIBS += -lclntsh
+    }
+}
+
+DESTDIR = $$BUILD_DIR/$$LIB_DIR
 CONFIG(debug, debug|release) {
     DEFINES += DEBUG
-    DESTDIR = $$BUILD_DIR/$$LIB_DIR/debug
-}
-
-CONFIG(release, debug|release) {
-    DEFINES += DEBUG
-    DESTDIR = $$BUILD_DIR/$$LIB_DIR/release
 }
 
 INCLUDEPATH += $$BUILD_DIR/include
+INCLUDEPATH += src
 
 LIBS += -L$$DESTDIR -lcmutils
 

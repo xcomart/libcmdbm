@@ -475,10 +475,13 @@ CMDBM_Context *CMDBM_ContextCreate(
 	memset(res, 0x0, sizeof(CMDBM_Context_Internal));
 	memcpy(res, &g_cmdbm_context, sizeof(CMDBM_ContextEx));
 
-	res->databases = CMUTIL_MapCreateEx(32, CMDBM_ContextDatabaseDestroyer);
-	res->poolconfs = CMUTIL_MapCreateEx(16, CMDBM_ContextPoolConfDestroyer);
+    res->databases = CMUTIL_MapCreateEx(
+                32, CMUTIL_False, CMDBM_ContextDatabaseDestroyer);
+    res->poolconfs = CMUTIL_MapCreateEx(
+                16, CMUTIL_False, CMDBM_ContextPoolConfDestroyer);
 
-	res->libctx = CMUTIL_MapCreateEx(32, CMDBM_ContextDBLibDestroyer);
+    res->libctx = CMUTIL_MapCreateEx(
+                32, CMUTIL_False, CMDBM_ContextDBLibDestroyer);
 
 	if (!CMDBM_ContextInitialize(res, confjson, progcharset, timer)) {
 		CMLogError("context initializing failed.");
