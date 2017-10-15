@@ -5,6 +5,7 @@ CONFIG -= qt
 DEFINES += CMDBM_LIBRARY
 CONFIG += CMDBM_MYSQL
 CONFIG += CMDBM_ORACLE
+CONFIG += CMDBM_ODBC
 
 !win32-msvc* {
     CONFIG += link_pkgconfig
@@ -21,11 +22,6 @@ win32 {
     }
 }
 
-contains(CONFIG, CMDBM_MYSQL) {
-    DEFINES += CMDBM_MYSQL
-    PKGCONFIG += mysqlclient
-}
-
 contains(CONFIG, CMDBM_ORACLE) {
     DEFINES += CMDBM_ORACLE
     ORACLE_HOME = $$(ORACLE_HOME)
@@ -36,6 +32,16 @@ contains(CONFIG, CMDBM_ORACLE) {
     } else {
         LIBS += -lclntsh
     }
+}
+
+contains(CONFIG, CMDBM_MYSQL) {
+    DEFINES += CMDBM_MYSQL
+    PKGCONFIG += mysqlclient
+}
+
+contains(CONFIG, CMDBM_ODBC) {
+    DEFINES += CMDBM_ODBC
+    LIBS += -lodbc
 }
 
 DESTDIR = $$BUILD_DIR/$$LIB_DIR
@@ -58,7 +64,8 @@ SOURCES += \
     src/sqlbuild.c \
     modules/cmdbm_mysql.c \
     modules/cmdbm_oracle.c \
-    modules/cmdbm_pgsql.c
+    modules/cmdbm_pgsql.c \
+    modules/cmdbm_odbc.c
 
 HEADERS += \
     src/functions.h \

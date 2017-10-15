@@ -1,7 +1,7 @@
 
-#ifdef CMDBM_MYSQL
-
 #include "functions.h"
+
+#ifdef CMDBM_MYSQL
 
 CMUTIL_LogDefine("cmdbm.module.mysql")
 
@@ -36,11 +36,11 @@ CMDBM_STATIC void *CMDBM_MySQL_Initialize(const char *dbcs, const char *prcs)
 	memset(res, 0x0, sizeof(CMDBM_MySQLCtx));
 	// mysql does not allow dash in character set name.
 	temp = CMUTIL_StringCreateEx(10, prcs);
-	res->prcs = CMUTIL_CALL(temp, Replace, "-", "");
-	CMUTIL_CALL(temp, Destroy);
+    res->prcs = CMCall(temp, Replace, "-", "");
+    CMCall(temp, Destroy);
 	temp = CMUTIL_StringCreateEx(10, dbcs);
-	res->dbcs = CMUTIL_CALL(temp, Replace, "-", "");
-	CMUTIL_CALL(temp, Destroy);
+    res->dbcs = CMCall(temp, Replace, "-", "");
+    CMCall(temp, Destroy);
 	return res;
 }
 
@@ -49,8 +49,8 @@ CMDBM_STATIC void CMDBM_MySQL_CleanUp(
 {
 	if (initres) {
 		CMDBM_MySQLCtx *ctx = (CMDBM_MySQLCtx*)initres;
-		if (ctx->prcs) CMUTIL_CALL(ctx->prcs, Destroy);
-		if (ctx->dbcs) CMUTIL_CALL(ctx->dbcs, Destroy);
+        if (ctx->prcs) CMCall(ctx->prcs, Destroy);
+        if (ctx->dbcs) CMCall(ctx->dbcs, Destroy);
 		CMFree(ctx);
 	}
 }
@@ -72,22 +72,23 @@ CMDBM_STATIC void *CMDBM_MySQL_OpenConnection(
 		void *initres, CMUTIL_JsonObject *params)
 {
 	CMUTIL_JsonValue *host =
-			(CMUTIL_JsonValue*)CMUTIL_CALL(params, Get, "host");
+            (CMUTIL_JsonValue*)CMCall(params, Get, "host");
 	CMUTIL_JsonValue *user =
-			(CMUTIL_JsonValue*)CMUTIL_CALL(params, Get, "user");
+            (CMUTIL_JsonValue*)CMCall(params, Get, "user");
 	CMUTIL_JsonValue *pass =
-			(CMUTIL_JsonValue*)CMUTIL_CALL(params, Get, "password");
+            (CMUTIL_JsonValue*)CMCall(params, Get, "password");
 	CMUTIL_JsonValue *db   =
-			(CMUTIL_JsonValue*)CMUTIL_CALL(params, Get, "database");
+            (CMUTIL_JsonValue*)CMCall(params, Get, "database");
 	unsigned int port = 3306;
 
-	if (CMUTIL_CALL(params, Get, "port"))
-		port = (unsigned int)CMUTIL_CALL(params, GetLong, "port");
-	if (host && user && pass && db) {
-		const char *shost = CMUTIL_CALL(host, GetCString);
-		const char *suser = CMUTIL_CALL(user, GetCString);
-		const char *spass = CMUTIL_CALL(pass, GetCString);
-		const char *sdb   = CMUTIL_CALL(db  , GetCString);
+    if (CMCall(params, Get, "port"))
+        port = (unsigned int)CMCall(params, GetLong, "port");
+
+    if (host && user && pass && db) {
+        const char *shost = CMCall(host, GetCString);
+        const char *suser = CMCall(user, GetCString);
+        const char *spass = CMCall(pass, GetCString);
+        const char *sdb   = CMCall(db  , GetCString);
 		CMDBM_MySQLSession *sess = CMAlloc(sizeof(CMDBM_MySQLSession));
 		memset(sess, 0x0, sizeof(CMDBM_MySQLSession));
 		sess->conn = mysql_init(NULL);
@@ -95,7 +96,7 @@ CMDBM_STATIC void *CMDBM_MySQL_OpenConnection(
 		if (mysql_real_connect(
 					sess->conn, shost, suser, spass, sdb, port, NULL, 0)) {
 			mysql_set_character_set(
-						sess->conn, CMUTIL_CALL(sess->ctx->prcs, GetCString));
+                        sess->conn, CMCall(sess->ctx->prcs, GetCString));
 			CMLogTrace("MySQL connection created.");
 			return sess;
 		} else {
@@ -131,14 +132,14 @@ CMDBM_STATIC CMUTIL_Bool CMDBM_MySQL_StartTransaction(
 	if (mysql_query(sess->conn, "SET autocommit=0")) {
 		MYSQL_LOGERROR(sess,
 					   "current MySQL database does not support transaction.");
-		return CMUTIL_False;
+        return CMFalse;
 	}
 	if (mysql_query(sess->conn, "START TRANSACTION")) {
 		MYSQL_LOGERROR(sess,
 					   "current MySQL database does not support transaction.");
-		return CMUTIL_False;
+        return CMFalse;
 	}
-	return CMUTIL_True;
+    return CMTrue;
 }
 
 CMDBM_STATIC void CMDBM_MySQL_EndTransaction(
@@ -155,10 +156,10 @@ CMDBM_STATIC CMUTIL_Bool CMDBM_MySQL_CommitTransaction(
 	CMDBM_MySQLSession *sess = (CMDBM_MySQLSession*)connection;
 	CMUTIL_UNUSED(initres);
 	if (mysql_query(sess->conn, "COMMIT"))
-		return CMUTIL_True;
+        return CMTrue;
 	else
 		MYSQL_LOGERROR(sess, "commit failed.");
-	return CMUTIL_False;
+    return CMFalse;
 }
 
 CMDBM_STATIC void CMDBM_MySQL_RollbackTransaction(
@@ -174,12 +175,12 @@ CMDBM_STATIC void CMDBM_MySQL_BindLong(
 		MYSQL_BIND *bind, CMUTIL_JsonValue *jval,
 		CMUTIL_Array *bufarr, CMUTIL_Json *out)
 {
-	int64 *pval = CMAlloc(sizeof(int64));
-	*pval = CMUTIL_CALL(jval, GetLong);
+    int64_t *pval = CMAlloc(sizeof(int64_t));
+    *pval = CMCall(jval, GetLong);
 	bind->buffer_type = MYSQL_TYPE_LONGLONG;
 	bind->buffer = pval;
-	bind->buffer_length = sizeof(int64);
-	CMUTIL_CALL(bufarr, Add, pval);
+    bind->buffer_length = sizeof(int64_t);
+    CMCall(bufarr, Add, pval);
 	CMUTIL_UNUSED(out);
 }
 
@@ -188,11 +189,11 @@ CMDBM_STATIC void CMDBM_MySQL_BindDouble(
 		CMUTIL_Array *bufarr, CMUTIL_Json *out)
 {
 	double *pval = CMAlloc(sizeof(double));
-	*pval = CMUTIL_CALL(jval, GetDouble);
+    *pval = CMCall(jval, GetDouble);
 	bind->buffer_type = MYSQL_TYPE_DOUBLE;
 	bind->buffer = pval;
 	bind->buffer_length = sizeof(double);
-	CMUTIL_CALL(bufarr, Add, pval);
+    CMCall(bufarr, Add, pval);
 	CMUTIL_UNUSED(out);
 }
 
@@ -201,11 +202,11 @@ CMDBM_STATIC void CMDBM_MySQL_BindString(
 		CMUTIL_Array *bufarr, CMUTIL_Json *out)
 {
 	char buf[4096] = {0,};
-	CMUTIL_String *sval = CMUTIL_CALL(jval, GetString);
-	if (out) CMUTIL_CALL(sval, AddNString, buf, 4096);
+    CMUTIL_String *sval = CMCall(jval, GetString);
+    if (out) CMCall(sval, AddNString, buf, 4096);
 	bind->buffer_type = MYSQL_TYPE_VARCHAR;
-	bind->buffer = (void*)CMUTIL_CALL(sval, GetCString);
-    bind->buffer_length = CMUTIL_CALL(sval, GetSize);
+    bind->buffer = (void*)CMCall(sval, GetCString);
+    bind->buffer_length = (ulong)CMCall(sval, GetSize);
 	CMUTIL_UNUSED(bufarr);
 }
 
@@ -214,11 +215,11 @@ CMDBM_STATIC void CMDBM_MySQL_BindBoolean(
 		CMUTIL_Array *bufarr, CMUTIL_Json *out)
 {
 	char *pval = CMAlloc(1);
-	*pval = (char)CMUTIL_CALL(jval, GetBoolean);
+    *pval = (char)CMCall(jval, GetBoolean);
 	bind->buffer_type = MYSQL_TYPE_TINY;
 	bind->buffer = pval;
 	bind->buffer_length = 1;
-	CMUTIL_CALL(bufarr, Add, pval);
+    CMCall(bufarr, Add, pval);
 	CMUTIL_UNUSED(out);
 }
 CMDBM_STATIC void CMDBM_MySQL_BindNull(
@@ -243,22 +244,22 @@ CMDBM_STATIC void CMDBM_MySQL_SetOutValue(
 		MYSQL_BIND *bind, CMUTIL_JsonValue *jval)
 {
 	if (bind->is_null_value) {
-		CMUTIL_CALL(jval, SetNull);
+        CMCall(jval, SetNull);
 	} else {
 		CMUTIL_String *temp;
 		switch (bind->buffer_type) {
 		case MYSQL_TYPE_TINY:
-			CMUTIL_CALL(jval, SetBoolean, (CMUTIL_Bool)*((char*)bind->buffer));
+            CMCall(jval, SetBoolean, (CMUTIL_Bool)*((char*)bind->buffer));
 			break;
 		case MYSQL_TYPE_LONGLONG:
-			CMUTIL_CALL(jval, SetLong, (int64)*((int64*)bind->buffer));
+            CMCall(jval, SetLong, (int64_t)*((int64_t*)bind->buffer));
 			break;
 		case MYSQL_TYPE_DOUBLE:
-			CMUTIL_CALL(jval, SetDouble, (double)*((double*)bind->buffer));
+            CMCall(jval, SetDouble, (double)*((double*)bind->buffer));
 			break;
 		case MYSQL_TYPE_VARCHAR:
-			temp = CMUTIL_CALL(jval, GetString);
-			CMUTIL_CALL(temp, CutTailOff, (int)bind->length_value);
+            temp = CMCall(jval, GetString);
+            CMCall(temp, CutTailOff, (size_t)bind->length_value);
 			break;
 		default:
 			CMLogErrorS("unknown type %d", bind->buffer_type);
@@ -270,35 +271,36 @@ CMDBM_STATIC MYSQL_STMT *CMDBM_MySQL_ExecuteBase(
 		CMDBM_MySQLSession *sess, CMUTIL_String *query,
 		CMUTIL_JsonArray *binds, CMUTIL_JsonObject *outs)
 {
-	int i, bsize = 0;
-	CMUTIL_Bool succ = CMUTIL_False;
+    uint i;
+    size_t bsize = 0;
+    CMUTIL_Bool succ = CMFalse;
 	MYSQL_STMT *stmt = mysql_stmt_init(sess->conn);
 	MYSQL_BIND *buffers = NULL;
 	CMUTIL_Array *array = NULL;
 
 	if (binds) {
 		array = CMUTIL_ArrayCreateEx(
-					CMUTIL_CALL(binds, GetSize), NULL, CMFree);
-		bsize = CMUTIL_CALL(binds, GetSize);
-		buffers = CMAlloc(sizeof(MYSQL_BIND) * bsize);
-		memset(buffers, 0x0, sizeof(MYSQL_BIND) * bsize);
+                    CMCall(binds, GetSize), NULL, CMFree);
+        bsize = CMCall(binds, GetSize);
+        buffers = CMAlloc(sizeof(MYSQL_BIND) * (ulong)bsize);
+        memset(buffers, 0x0, sizeof(MYSQL_BIND) * (ulong)bsize);
 	}
 
-	if (mysql_stmt_prepare(stmt, CMUTIL_CALL(query, GetCString),
-						   (unsigned long)CMUTIL_CALL(query, GetSize))) {
+    if (mysql_stmt_prepare(stmt, CMCall(query, GetCString),
+                           (unsigned long)CMCall(query, GetSize))) {
 		MYSQL_LOGERROR(sess, "prepare statement failed.");
 		goto FAILEDPOINT;
 	}
 	// bind variables.
 	for (i=0; i<bsize; i++) {
 		char ibuf[20];
-		CMUTIL_Json *json = CMUTIL_CALL(binds, Get, i);
+        CMUTIL_Json *json = CMCall(binds, Get, i);
 		sprintf(ibuf, "%d", i);
-		if (CMUTIL_CALL(json, GetType) == CMUTIL_JsonTypeValue) {
+        if (CMCall(json, GetType) == CMUTIL_JsonTypeValue) {
 			CMUTIL_JsonValue *jval = (CMUTIL_JsonValue*)json;
-			CMUTIL_Json *out = CMUTIL_CALL(outs, Get, ibuf);
+            CMUTIL_Json *out = CMCall(outs, Get, ibuf);
 			// type of json value
-			g_cmdbm_mysql_bindprocs[CMUTIL_CALL(jval, GetValueType)](
+            g_cmdbm_mysql_bindprocs[CMCall(jval, GetValueType)](
 						&buffers[i], jval, array, out);
 		} else {
 			CMLogError("binding variable is not value type JSON.");
@@ -315,59 +317,60 @@ CMDBM_STATIC MYSQL_STMT *CMDBM_MySQL_ExecuteBase(
 
 	if (mysql_stmt_execute(stmt) == 0) {
 		if (outs) {
-			CMUTIL_StringArray *keys = CMUTIL_CALL(outs, GetKeys);
-			for (i=0; i<CMUTIL_CALL(keys, GetSize); i++) {
-				CMUTIL_String *sidx = CMUTIL_CALL(keys, GetAt, i);
-				const char *cidx = CMUTIL_CALL(sidx, GetCString);
+            CMUTIL_StringArray *keys = CMCall(outs, GetKeys);
+            for (i=0; i<CMCall(keys, GetSize); i++) {
+                CMUTIL_String *sidx = CMCall(keys, GetAt, i);
+                const char *cidx = CMCall(sidx, GetCString);
 				CMUTIL_JsonValue *jval =
-						(CMUTIL_JsonValue*)CMUTIL_CALL(outs, Get, cidx);
+                        (CMUTIL_JsonValue*)CMCall(outs, Get, cidx);
 				int idx = atoi(cidx);
 				CMDBM_MySQL_SetOutValue(&buffers[idx], jval);
 			}
-			CMUTIL_CALL(keys, Destroy);
+            CMCall(keys, Destroy);
 		}
 	} else {
 		MYSQL_LOGERROR(sess, "execute statement failed.");
 		goto FAILEDPOINT;
 	}
-	succ = CMUTIL_True;
+    succ = CMTrue;
 FAILEDPOINT:
 	if (!succ) {
 		if (stmt) mysql_stmt_close(stmt);
 		stmt = NULL;
 	}
 	if (buffers) CMFree(buffers);
-	if (array) CMUTIL_CALL(array, Destroy);
+    if (array) CMCall(array, Destroy);
 	return stmt;
 }
 
 typedef struct CMDBM_MySQL_FieldInfo CMDBM_MySQL_FieldInfo;
 struct CMDBM_MySQL_FieldInfo {
-	char name[2048];
-	int index;
-	CMUTIL_JsonValueType jtype;
-	double doubleVal;
-	int64 longVal;
-	my_bool isnull;
-	my_bool error;
-	unsigned long length;
-	MYSQL_BIND *bind;
-	CMDBM_MySQLSession *sess;
-	void (*fassign)(CMDBM_MySQL_FieldInfo*, MYSQL_STMT*, CMUTIL_JsonObject*);
+    char name[2048];
+    double doubleVal;
+    int64_t longVal;
+    unsigned long length;
+    MYSQL_BIND *bind;
+    CMDBM_MySQLSession *sess;
+    void (*fassign)(CMDBM_MySQL_FieldInfo*, MYSQL_STMT*, CMUTIL_JsonObject*);
+    int index;
+    CMUTIL_JsonValueType jtype;
+    my_bool isnull;
+    my_bool error;
+    char    dummy_padder[6];
 };
 
 CMDBM_STATIC void CMDBM_MySQL_ResultAssignLong(
 		CMDBM_MySQL_FieldInfo *finfo, MYSQL_STMT *stmt, CMUTIL_JsonObject *row)
 {
 	CMUTIL_UNUSED(stmt);
-	CMUTIL_CALL(row, PutLong, finfo->name, finfo->longVal);
+    CMCall(row, PutLong, finfo->name, finfo->longVal);
 }
 
 CMDBM_STATIC void CMDBM_MySQL_ResultAssignDouble(
 		CMDBM_MySQL_FieldInfo *finfo, MYSQL_STMT *stmt, CMUTIL_JsonObject *row)
 {
 	CMUTIL_UNUSED(stmt);
-	CMUTIL_CALL(row, PutDouble, finfo->name, finfo->doubleVal);
+    CMCall(row, PutDouble, finfo->name, finfo->doubleVal);
 }
 
 CMDBM_STATIC void CMDBM_MySQL_ResultAssignString(
@@ -380,11 +383,12 @@ CMDBM_STATIC void CMDBM_MySQL_ResultAssignString(
         bind->buffer = buffer;
         bind->buffer_length = finfo->length*2;
         memset(buffer, 0x0, finfo->length*2+1);
-        ival = mysql_stmt_fetch_column(stmt, finfo->bind, finfo->index, 0);
+        ival = mysql_stmt_fetch_column(
+                    stmt, finfo->bind, (uint)finfo->index, 0);
         if (ival != 0) {
             MYSQL_LOGERROR(finfo->sess, "mysql_stmt_fetch_column() failed.");
         } else {
-            CMUTIL_CALL(row, PutString, finfo->name, buffer);
+            CMCall(row, PutString, finfo->name, buffer);
         }
         // reset buffer
         CMFree(buffer);
@@ -393,7 +397,7 @@ CMDBM_STATIC void CMDBM_MySQL_ResultAssignString(
 //		CMUTIL_CALL(row, PutString, finfo->name, (char*)bind->buffer);
 //		memset(bind->buffer, 0x0, 4096);
 	} else {
-		CMUTIL_CALL(row, PutNull, finfo->name);
+        CMCall(row, PutNull, finfo->name);
 	}
 	CMUTIL_UNUSED(stmt);
 }
@@ -401,9 +405,9 @@ CMDBM_STATIC void CMDBM_MySQL_ResultAssignString(
 CMDBM_STATIC void CMDBM_MySQL_ResultAssignBoolean(
 		CMDBM_MySQL_FieldInfo *finfo, MYSQL_STMT *stmt, CMUTIL_JsonObject *row)
 {
-	CMUTIL_Bool bval = finfo->longVal? CMUTIL_True:CMUTIL_False;
+    CMUTIL_Bool bval = finfo->longVal? CMTrue:CMFalse;
 	CMUTIL_UNUSED(stmt);
-	CMUTIL_CALL(row, PutBoolean, finfo->name, bval);
+    CMCall(row, PutBoolean, finfo->name, bval);
 }
 
 CMDBM_STATIC MYSQL_STMT *CMDBM_MySQL_SelectBase(
@@ -415,7 +419,7 @@ CMDBM_STATIC MYSQL_STMT *CMDBM_MySQL_SelectBase(
 	if (stmt) {
 		int i, fieldcnt;
 		MYSQL_FIELD *ofields = NULL;
-		CMUTIL_Bool succ = CMUTIL_False;
+        CMUTIL_Bool succ = CMFalse;
 
 		if (mysql_stmt_store_result(stmt) != 0) {
 			MYSQL_LOGERROR(sess, "execute statement failed.");
@@ -428,10 +432,10 @@ CMDBM_STATIC MYSQL_STMT *CMDBM_MySQL_SelectBase(
 			goto FAILEDPOINT;
 		}
 
-		fieldcnt = mysql_field_count(sess->conn);
+        fieldcnt = (int)mysql_field_count(sess->conn);
 		ofields = mysql_fetch_fields(*meta);
-		*resbuf = CMAlloc(sizeof(MYSQL_BIND) * fieldcnt);
-		memset(*resbuf, 0x0, sizeof(MYSQL_BIND) * fieldcnt);
+        *resbuf = CMAlloc(sizeof(MYSQL_BIND) * (ulong)fieldcnt);
+        memset(*resbuf, 0x0, sizeof(MYSQL_BIND) * (ulong)fieldcnt);
 		for (i=0; i<fieldcnt; i++) {
 			MYSQL_FIELD *f = &ofields[i];
 			MYSQL_BIND *b = &((*resbuf)[i]);
@@ -489,14 +493,14 @@ CMDBM_STATIC MYSQL_STMT *CMDBM_MySQL_SelectBase(
 			b->error = &(finfo->error);
             finfo->bind = b;
 			finfo->sess = sess;
-			CMUTIL_CALL(fields, Add, finfo);
+            CMCall(fields, Add, finfo);
 		}
 		if (mysql_stmt_bind_result(stmt, *resbuf) != 0) {
 			MYSQL_LOGERROR(sess, "cannot bind result buffers.");
 			goto FAILEDPOINT;
 		}
 
-		succ = CMUTIL_True;
+        succ = CMTrue;
 FAILEDPOINT:
 		if (!succ) {
 			mysql_stmt_close(stmt);
@@ -509,12 +513,13 @@ FAILEDPOINT:
 CMDBM_STATIC void CMUTIL_MySQL_RowSetFields(
 		CMUTIL_Array *finfos, MYSQL_STMT *stmt, CMUTIL_JsonObject *row)
 {
-	int i, numfields = CMUTIL_CALL(finfos, GetSize);
+    uint i;
+    size_t numfields = CMCall(finfos, GetSize);
 	for (i=0; i<numfields; i++) {
 		CMDBM_MySQL_FieldInfo *finfo =
-				(CMDBM_MySQL_FieldInfo*)CMUTIL_CALL(finfos, GetAt, i);
+                (CMDBM_MySQL_FieldInfo*)CMCall(finfos, GetAt, i);
 		if (finfo->isnull) {
-			CMUTIL_CALL(row, PutNull, finfo->name);
+            CMCall(row, PutNull, finfo->name);
 		} else {
 			finfo->fassign(finfo, stmt, row);
 		}
@@ -543,7 +548,7 @@ CMDBM_STATIC CMUTIL_JsonObject *CMDBM_MySQL_GetRow(
 	MYSQL_STMT *stmt = CMDBM_MySQL_SelectBase(
 				sess, query, binds, outs, fields, &meta, &resb);
 	CMUTIL_JsonObject *res = NULL;
-	CMUTIL_Bool succ = CMUTIL_False;
+    CMUTIL_Bool succ = CMFalse;
 
 	if (stmt) {
 		if (mysql_stmt_fetch(stmt) != 0) {
@@ -556,7 +561,7 @@ CMDBM_STATIC CMUTIL_JsonObject *CMDBM_MySQL_GetRow(
 		goto FAILEDPOINT;
 	}
 
-	succ = CMUTIL_True;
+    succ = CMTrue;
 FAILEDPOINT:
 	if (meta) mysql_free_result(meta);
 	if (stmt) {
@@ -564,7 +569,7 @@ FAILEDPOINT:
 		mysql_stmt_close(stmt);
 	}
 	if (fields)
-		CMUTIL_CALL(fields, Destroy);
+        CMCall(fields, Destroy);
 	if (resb) CMFree(resb);
 	if (!succ && res) {
 		CMUTIL_JsonDestroy(res);
@@ -582,14 +587,14 @@ CMDBM_STATIC CMUTIL_JsonValue *CMDBM_MySQL_GetOneValue(
 	CMUTIL_JsonObject *row =
 			CMDBM_MySQL_GetRow(initres, connection, query, binds, outs);
 	if (row) {
-		CMUTIL_StringArray *keys = CMUTIL_CALL(row, GetKeys);
-		if (CMUTIL_CALL(keys, GetSize) > 0) {
-			const char *key = CMUTIL_CALL(keys, GetCString, 0);
-			res = (CMUTIL_JsonValue*)CMUTIL_CALL(row, Remove, key);
+        CMUTIL_StringArray *keys = CMCall(row, GetKeys);
+        if (CMCall(keys, GetSize) > 0) {
+            const char *key = CMCall(keys, GetCString, 0);
+            res = (CMUTIL_JsonValue*)CMCall(row, Remove, key);
 		} else {
 			CMLogError("row does not contain any fields.");
 		}
-		CMUTIL_CALL(keys, Destroy);
+        CMCall(keys, Destroy);
 		CMUTIL_JsonDestroy(row);
 	}
 
@@ -608,7 +613,7 @@ CMDBM_STATIC CMUTIL_JsonArray *CMDBM_MySQL_GetList(
 	MYSQL_STMT *stmt = CMDBM_MySQL_SelectBase(
 				sess, query, binds, outs, fields, &meta, &resb);
 	CMUTIL_JsonArray *res = CMUTIL_JsonArrayCreate();
-	CMUTIL_Bool succ = CMUTIL_False;
+    CMUTIL_Bool succ = CMFalse;
 
 	if (stmt) {
 		int rcnt = 0, rval;
@@ -616,7 +621,7 @@ CMDBM_STATIC CMUTIL_JsonArray *CMDBM_MySQL_GetList(
 			   rval == MYSQL_DATA_TRUNCATED) {
 			CMUTIL_JsonObject *obj = CMUTIL_JsonObjectCreate();
 			CMUTIL_MySQL_RowSetFields(fields, stmt,  obj);
-			CMUTIL_CALL(res, Add, (CMUTIL_Json*)obj);
+            CMCall(res, Add, (CMUTIL_Json*)obj);
 			rcnt++;
 		}
 		if (rval == 1) {
@@ -626,7 +631,7 @@ CMDBM_STATIC CMUTIL_JsonArray *CMDBM_MySQL_GetList(
 		goto FAILEDPOINT;
 	}
 
-	succ = CMUTIL_True;
+    succ = CMTrue;
 FAILEDPOINT:
 	if (meta) mysql_free_result(meta);
 	if (stmt) {
@@ -634,7 +639,7 @@ FAILEDPOINT:
 		mysql_stmt_close(stmt);
 	}
 	if (fields)
-		CMUTIL_CALL(fields, Destroy);
+        CMCall(fields, Destroy);
 	if (resb) CMFree(resb);
 	if (!succ && res) {
 		CMUTIL_JsonDestroy(res);
@@ -695,7 +700,7 @@ CMDBM_STATIC void *CMDBM_MySQL_OpenCursor(
 		mysql_stmt_close(stmt);
 	}
 	if (fields)
-		CMUTIL_CALL(fields, Destroy);
+        CMCall(fields, Destroy);
 	if (resb) CMFree(resb);
 	CMUTIL_UNUSED(initres);
 	return NULL;
@@ -705,14 +710,14 @@ CMDBM_STATIC void CMDBM_MySQL_CloseCursor(void *cursor)
 {
 	CMDBM_MySQL_Cursor *csr = (CMDBM_MySQL_Cursor*)cursor;
 	if (csr) {
-		if (csr->fields) CMUTIL_CALL(csr->fields, Destroy);
+        if (csr->fields) CMCall(csr->fields, Destroy);
 		if (csr->meta) mysql_free_result(csr->meta);
 		if (csr->stmt) {
 			mysql_stmt_free_result(csr->stmt);
 			mysql_stmt_close(csr->stmt);
 		}
 		if (csr->fields)
-			CMUTIL_CALL(csr->fields, Destroy);
+            CMCall(csr->fields, Destroy);
 		if (csr->resb) CMFree(csr->resb);
 		CMFree(csr);
 	}

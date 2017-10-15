@@ -4,28 +4,29 @@
 CMUTIL_LogDefine("cmdbm.context")
 
 typedef struct CMDBM_ContextDBLib {
-	int initcnt;
 	void (*libclear)();
+    int initcnt;
+    int dummy_padder;
 } CMDBM_ContextDBLib;
 
 typedef struct CMDBM_Context_Internal {
 	CMDBM_ContextEx     base;
     CMUTIL_Map          *databases;
-    CMUTIL_Bool         istimerinternal;
     CMUTIL_Timer        *timer;
     char                *progcs;        // program character set
 	CMUTIL_Map			*poolconfs;
-	CMUTIL_Bool			logqueryid;
+    CMUTIL_Map			*libctx;
+    CMUTIL_Bool         istimerinternal;
+    CMUTIL_Bool			logqueryid;
 	CMUTIL_Bool			logquery;
 	CMUTIL_Bool			logresult;
-	CMUTIL_Map			*libctx;
 } CMDBM_Context_Internal;
 
 CMDBM_STATIC void CMDBM_ContextDatabaseDestroyer(void *data)
 {
     CMDBM_Database *db = (CMDBM_Database*)data;
 	if (db)
-        CMUTIL_CALL(db, Destroy);
+        CMCall(db, Destroy);
 }
 
 CMDBM_STATIC void CMDBM_ContextPoolConfDestroyer(void *data)
@@ -48,31 +49,31 @@ CMDBM_STATIC void CMDBM_ContextDBLibDestroyer(void *data)
 
 CMDBM_STATIC void CMDBM_ContextConfigClean(CMUTIL_Json *json)
 {
-	int i;
-	switch (CMUTIL_CALL(json, GetType)) {
+    uint i;
+	switch (CMCall(json, GetType)) {
 	case CMUTIL_JsonTypeObject: {
 		CMUTIL_JsonObject *jobj = (CMUTIL_JsonObject*)json;
-		CMUTIL_StringArray *keys = CMUTIL_CALL(jobj, GetKeys);
-		for (i=0; i<CMUTIL_CALL(keys, GetSize); i++) {
-			CMUTIL_String *str = CMUTIL_CALL(keys, GetAt, i);
-			const char *key = CMUTIL_CALL(str, GetCString);
-			CMUTIL_Json *item = CMUTIL_CALL(jobj, Remove, key);
+		CMUTIL_StringArray *keys = CMCall(jobj, GetKeys);
+		for (i=0; i<CMCall(keys, GetSize); i++) {
+			CMUTIL_String *str = CMCall(keys, GetAt, i);
+			const char *key = CMCall(str, GetCString);
+			CMUTIL_Json *item = CMCall(jobj, Remove, key);
 			// change internal buffer to lowercase
-			CMUTIL_CALL(str, SelfToLower);
+			CMCall(str, SelfToLower);
 			// change item recursively.
 			CMDBM_ContextConfigClean(item);
 			// 'key' is changed to lowercase already by calling SelfToLower.
 			// so just put with it.
-			CMUTIL_CALL(jobj, Put, key, item);
+			CMCall(jobj, Put, key, item);
 		}
-		CMUTIL_CALL(keys, Destroy);
+		CMCall(keys, Destroy);
 		break;
 	}
 	case CMUTIL_JsonTypeArray: {
 		CMUTIL_JsonArray *jarr = (CMUTIL_JsonArray*)json;
-		for (i=0; i<CMUTIL_CALL(jarr, GetSize); i++)
+		for (i=0; i<CMCall(jarr, GetSize); i++)
 			// change item recursively.
-			CMDBM_ContextConfigClean(CMUTIL_CALL(jarr, Get, i));
+			CMDBM_ContextConfigClean(CMCall(jarr, Get, i));
 		break;
 	}
 	default: return;
@@ -83,37 +84,37 @@ CMDBM_STATIC CMUTIL_Bool CMDBM_ContextParsePoolConfig(
 		CMDBM_Context *context,
 		CMUTIL_JsonObject *pcfg)
 {
-	CMUTIL_Bool res = CMUTIL_False;
+	CMUTIL_Bool res = CMFalse;
 	CMDBM_Context_Internal *ictx = (CMDBM_Context_Internal*)context;
 	CMUTIL_JsonValue *id =
-			(CMUTIL_JsonValue*)CMUTIL_CALL(pcfg, Get, "id");
+			(CMUTIL_JsonValue*)CMCall(pcfg, Get, "id");
 	CMUTIL_JsonValue *testsql =
-			(CMUTIL_JsonValue*)CMUTIL_CALL(pcfg, Get, "testsql");
+			(CMUTIL_JsonValue*)CMCall(pcfg, Get, "testsql");
 	if (id) {
-		const char *sid = CMUTIL_CALL(id, GetCString);
+		const char *sid = CMCall(id, GetCString);
 		CMDBM_PoolConfig *poolconf = CMAlloc(sizeof(CMDBM_PoolConfig));
 
 		memset(poolconf, 0x0, sizeof(CMDBM_PoolConfig));
-		if (CMUTIL_CALL(pcfg, Get, "initcount"))
-			poolconf->initcnt = (int)CMUTIL_CALL(pcfg, GetLong, "initcount");
+		if (CMCall(pcfg, Get, "initcount"))
+			poolconf->initcnt = (int)CMCall(pcfg, GetLong, "initcount");
 		else
 			poolconf->initcnt = 5;
-		if (CMUTIL_CALL(pcfg, Get, "maxcount"))
-			poolconf->maxcnt = (int)CMUTIL_CALL(pcfg, GetLong, "maxcount");
+		if (CMCall(pcfg, Get, "maxcount"))
+			poolconf->maxcnt = (int)CMCall(pcfg, GetLong, "maxcount");
 		else
 			poolconf->maxcnt = 20;
-		if (CMUTIL_CALL(pcfg, Get, "pinginterval"))
+		if (CMCall(pcfg, Get, "pinginterval"))
 			poolconf->pingterm =
-					(int)CMUTIL_CALL(pcfg, GetLong, "pinginterval");
+					(int)CMCall(pcfg, GetLong, "pinginterval");
 		else
 			poolconf->pingterm = 30;
 		if (testsql)
-			poolconf->testsql = CMStrdup(CMUTIL_CALL(testsql, GetCString));
+			poolconf->testsql = CMStrdup(CMCall(testsql, GetCString));
 		else
 			poolconf->testsql = CMStrdup("select 1");
 
-		CMUTIL_CALL(ictx->poolconfs, Put, sid, poolconf);
-		res = CMUTIL_True;
+		CMCall(ictx->poolconfs, Put, sid, poolconf);
+		res = CMTrue;
 	} else {
 		CMLogError("PoolConfig does not have 'id' attribute.");
 	}
@@ -123,25 +124,25 @@ CMDBM_STATIC CMUTIL_Bool CMDBM_ContextParsePoolConfig(
 CMDBM_STATIC CMUTIL_Bool CMDBM_ContextParseMappers(
 		CMDBM_Database *db, CMUTIL_JsonArray *mappers)
 {
-	int i;
-	CMUTIL_Bool res = CMUTIL_True;
-	for (i=0; res && i<CMUTIL_CALL(mappers, GetSize); i++) {
+    uint i;
+	CMUTIL_Bool res = CMTrue;
+	for (i=0; res && i<CMCall(mappers, GetSize); i++) {
 		CMUTIL_JsonObject *mcfg =
-				(CMUTIL_JsonObject*)CMUTIL_CALL(mappers, Get, i);
-		const char *stype = CMUTIL_CALL(mcfg, GetCString, "type");
+				(CMUTIL_JsonObject*)CMCall(mappers, Get, i);
+		const char *stype = CMCall(mcfg, GetCString, "type");
 		if (strcasecmp(stype, "mapperSet") == 0) {
 			// add mapper set
-			const char *bpath = CMUTIL_CALL(mcfg, GetCString, "basepath");
-			const char *fpattern = CMUTIL_CALL(mcfg, GetCString, "filepattern");
-			CMUTIL_Bool recur = CMUTIL_CALL(mcfg, GetBoolean, "recursive");
-			res = CMUTIL_CALL(db, AddMapperSet, bpath, fpattern, recur);
+			const char *bpath = CMCall(mcfg, GetCString, "basepath");
+			const char *fpattern = CMCall(mcfg, GetCString, "filepattern");
+			CMUTIL_Bool recur = CMCall(mcfg, GetBoolean, "recursive");
+			res = CMCall(db, AddMapperSet, bpath, fpattern, recur);
 		} else if (strcasecmp(stype, "mapper") == 0) {
 			// add mapper
-			const char *fpath = CMUTIL_CALL(mcfg, GetCString, "filepath");
-			res = CMUTIL_CALL(db, AddMapper, fpath);
+			const char *fpath = CMCall(mcfg, GetCString, "filepath");
+			res = CMCall(db, AddMapper, fpath);
 		} else {
 			CMLogErrorS("unknown mapper type: %s", stype);
-			res = CMUTIL_False;
+			res = CMFalse;
 		}
 	}
 	return res;
@@ -152,46 +153,46 @@ CMDBM_STATIC CMUTIL_Bool CMDBM_ContextParseDatabase(
 		const char *sdbtype,
 		CMUTIL_JsonObject *dcfg)
 {
-	CMUTIL_Bool res = CMUTIL_False;
+	CMUTIL_Bool res = CMFalse;
 	CMDBM_Context_Internal *ictx = (CMDBM_Context_Internal*)context;
 	CMUTIL_JsonObject *pcfg =
-			(CMUTIL_JsonObject*)CMUTIL_CALL(dcfg, Get, "pool");
+			(CMUTIL_JsonObject*)CMCall(dcfg, Get, "pool");
 	CMUTIL_JsonValue *pref =
-			(CMUTIL_JsonValue*)CMUTIL_CALL(pcfg, Get, "confref");
+			(CMUTIL_JsonValue*)CMCall(pcfg, Get, "confref");
 	CMUTIL_JsonValue *testsql =
-			(CMUTIL_JsonValue*)CMUTIL_CALL(pcfg, Get, "testsql");
+			(CMUTIL_JsonValue*)CMCall(pcfg, Get, "testsql");
 	CMUTIL_JsonValue *id =
-			(CMUTIL_JsonValue*)CMUTIL_CALL(dcfg, Get, "id");
+			(CMUTIL_JsonValue*)CMCall(dcfg, Get, "id");
 	CMUTIL_JsonValue *charset =
-			(CMUTIL_JsonValue*)CMUTIL_CALL(dcfg, Get, "charset");
+			(CMUTIL_JsonValue*)CMCall(dcfg, Get, "charset");
 	const char *sid = NULL, *scharset = NULL;
 	CMDBM_Database *db = NULL;
 	CMDBM_PoolConfig *pconf = NULL;
 	CMDBM_DBType dbtype;
 	CMUTIL_JsonObject *param = NULL;
 	CMUTIL_StringArray *keys = NULL;
-	int i;
+    uint i;
 
 	if (id == NULL) {
 		CMLogErrorS("There is no 'id' attribute in '%s' type datasource.");
 		goto ENDPOINT;
 	}
-	sid = CMUTIL_CALL(id, GetCString);
+	sid = CMCall(id, GetCString);
 
 	if (charset == NULL)
 		scharset = "utf-8";
 	else
-		scharset = CMUTIL_CALL(charset, GetCString);
+		scharset = CMCall(charset, GetCString);
 
 	pconf = CMAlloc(sizeof(CMDBM_PoolConfig));
 
 	if (pref) {
-		const char *refkey = CMUTIL_CALL(pref, GetCString);
-		CMDBM_PoolConfig *ref = (CMDBM_PoolConfig*)CMUTIL_CALL(
+		const char *refkey = CMCall(pref, GetCString);
+		CMDBM_PoolConfig *ref = (CMDBM_PoolConfig*)CMCall(
 					ictx->poolconfs, Get, refkey);
 		memcpy(pconf, ref, sizeof(CMDBM_PoolConfig));
 		if (testsql)
-			pconf->testsql = CMStrdup(CMUTIL_CALL(testsql, GetCString));
+			pconf->testsql = CMStrdup(CMCall(testsql, GetCString));
 		else
 			pconf->testsql = CMStrdup(pconf->testsql);
 	} else {
@@ -200,37 +201,37 @@ CMDBM_STATIC CMUTIL_Bool CMDBM_ContextParseDatabase(
 		pconf->maxcnt = 20;
 		pconf->pingterm = 30;
 		if (testsql)
-			pconf->testsql = CMStrdup(CMUTIL_CALL(testsql, GetCString));
+			pconf->testsql = CMStrdup(CMCall(testsql, GetCString));
 		else
 			pconf->testsql = CMStrdup("select 1");
 	}
 
-	if (CMUTIL_CALL(pcfg, Get, "initcount"))
-		pconf->initcnt = (int)CMUTIL_CALL(pcfg, GetLong, "initcount");
+	if (CMCall(pcfg, Get, "initcount"))
+		pconf->initcnt = (int)CMCall(pcfg, GetLong, "initcount");
 
-	if (CMUTIL_CALL(pcfg, Get, "maxcount"))
-		pconf->maxcnt = (int)CMUTIL_CALL(pcfg, GetLong, "maxcount");
+	if (CMCall(pcfg, Get, "maxcount"))
+		pconf->maxcnt = (int)CMCall(pcfg, GetLong, "maxcount");
 
-	if (CMUTIL_CALL(pcfg, Get, "pinginterval"))
-		pconf->pingterm =(int)CMUTIL_CALL(pcfg, GetLong, "pinginterval");
+	if (CMCall(pcfg, Get, "pinginterval"))
+		pconf->pingterm =(int)CMCall(pcfg, GetLong, "pinginterval");
 
-	if (CMUTIL_CALL(dcfg, Get, "params")) {
-		CMUTIL_Json *json = CMUTIL_CALL(dcfg, Get, "params");
-		param = (CMUTIL_JsonObject*)CMUTIL_CALL(json, Clone);
+	if (CMCall(dcfg, Get, "params")) {
+		CMUTIL_Json *json = CMCall(dcfg, Get, "params");
+		param = (CMUTIL_JsonObject*)CMCall(json, Clone);
 	} else {
 		param = CMUTIL_JsonObjectCreate();
 	}
-	keys = CMUTIL_CALL(dcfg, GetKeys);
-	for (i=0; i<CMUTIL_CALL(keys, GetSize); i++) {
-		const char *key = CMUTIL_CALL(keys, GetCString, i);
-		CMUTIL_Json *item = CMUTIL_CALL(dcfg, Get, key);
-		CMUTIL_JsonType type = CMUTIL_CALL(item, GetType);
+	keys = CMCall(dcfg, GetKeys);
+	for (i=0; i<CMCall(keys, GetSize); i++) {
+		const char *key = CMCall(keys, GetCString, i);
+		CMUTIL_Json *item = CMCall(dcfg, Get, key);
+		CMUTIL_JsonType type = CMCall(item, GetType);
 		if (type == CMUTIL_JsonTypeValue) {
-			CMUTIL_Json *nitem = CMUTIL_CALL(item, Clone);
-			CMUTIL_CALL(param, Put, key, nitem);
+			CMUTIL_Json *nitem = CMCall(item, Clone);
+			CMCall(param, Put, key, nitem);
 		}
 	}
-	CMUTIL_CALL(keys, Destroy);
+	CMCall(keys, Destroy);
 
 	dbtype = CMDBM_DatabaseType(sdbtype);
 	db = CMDBM_DatabaseCreate(sid, dbtype, scharset, pconf, param);
@@ -240,9 +241,9 @@ CMDBM_STATIC CMUTIL_Bool CMDBM_ContextParseDatabase(
 	}
 
 	// parse mappers
-	if (CMUTIL_CALL(dcfg, Get, "mappers")) {
-		CMUTIL_Json *mappers = CMUTIL_CALL(dcfg, Get, "mappers");
-		if (CMUTIL_CALL(mappers, GetType) == CMUTIL_JsonTypeArray) {
+	if (CMCall(dcfg, Get, "mappers")) {
+		CMUTIL_Json *mappers = CMCall(dcfg, Get, "mappers");
+		if (CMCall(mappers, GetType) == CMUTIL_JsonTypeArray) {
 			if (!CMDBM_ContextParseMappers(db, (CMUTIL_JsonArray*)mappers)) {
 				goto ENDPOINT;
 			}
@@ -255,18 +256,18 @@ CMDBM_STATIC CMUTIL_Bool CMDBM_ContextParseDatabase(
 				  "any request on this database will be failed.", sid);
 	}
 
-	if (!CMUTIL_CALL(context, AddDatabase, db)) {
+	if (!CMCall(context, AddDatabase, db)) {
 		CMLogErrorS("database(%s) cannot be added to context.", sid);
 		goto ENDPOINT;
 	}
 
-	res = CMUTIL_True;
+	res = CMTrue;
 ENDPOINT:
 	if (pconf) CMDBM_ContextPoolConfDestroyer(pconf);
 	if (param)
 		CMUTIL_JsonDestroy(param);
 	if (!res && db)
-		CMUTIL_CALL(db, Destroy);
+		CMCall(db, Destroy);
 	return res;
 }
 
@@ -274,14 +275,14 @@ CMDBM_STATIC CMUTIL_Bool CMDBM_ContextParseConfig(
 		CMDBM_Context *context,
 		CMUTIL_Json *config)
 {
-	int i;
-	CMUTIL_Bool res = CMUTIL_False;
+    uint i;
+	CMUTIL_Bool res = CMFalse;
 	CMUTIL_Json *item = NULL;
 	CMUTIL_JsonArray *jarr = NULL;
 	CMUTIL_JsonObject *jconf = NULL;
 	CMUTIL_String *type = NULL, *ltype = NULL;
 
-	if (CMUTIL_CALL(config, GetType) != CMUTIL_JsonTypeObject) {
+	if (CMCall(config, GetType) != CMUTIL_JsonTypeObject) {
 		CMLogErrorS("invalid configuration structure.");
 		goto ENDPOINT;
 	}
@@ -291,18 +292,18 @@ CMDBM_STATIC CMUTIL_Bool CMDBM_ContextParseConfig(
 	CMDBM_ContextConfigClean(config);
 
 	// load pool config
-	item = CMUTIL_CALL(jconf, Get, "poolconfigurations");
+	item = CMCall(jconf, Get, "poolconfigurations");
 	if (item) {
-		if (CMUTIL_CALL(item, GetType) != CMUTIL_JsonTypeArray) {
+		if (CMCall(item, GetType) != CMUTIL_JsonTypeArray) {
 			CMLogErrorS("invalid configuration structure.");
 			goto ENDPOINT;
 		}
 		jarr = (CMUTIL_JsonArray*)item;
-		for (i=0; i<CMUTIL_CALL(jarr, GetSize); i++) {
+		for (i=0; i<CMCall(jarr, GetSize); i++) {
 			CMUTIL_JsonObject *pcfg = NULL;
 
-			item = CMUTIL_CALL(jarr, Get, i);
-			if (CMUTIL_CALL(item, GetType) != CMUTIL_JsonTypeObject) {
+			item = CMCall(jarr, Get, i);
+			if (CMCall(item, GetType) != CMUTIL_JsonTypeObject) {
 				CMLogErrorS("invalid configuration structure.");
 				goto ENDPOINT;
 			}
@@ -316,43 +317,43 @@ CMDBM_STATIC CMUTIL_Bool CMDBM_ContextParseConfig(
 	}
 
 	// load database config
-	item = CMUTIL_CALL((CMUTIL_JsonObject*)config, Get, "databases");
+	item = CMCall((CMUTIL_JsonObject*)config, Get, "databases");
 	if (!item) {
 		CMLogErrorS("database configuration not found.");
 		goto ENDPOINT;
 	}
-	if (CMUTIL_CALL(item, GetType) != CMUTIL_JsonTypeArray) {
+	if (CMCall(item, GetType) != CMUTIL_JsonTypeArray) {
 		CMLogErrorS("invalid configuration structure.");
 		goto ENDPOINT;
 	}
 	jarr = (CMUTIL_JsonArray*)item;
-	for (i=0; i<CMUTIL_CALL(jarr, GetSize); i++) {
+	for (i=0; i<CMCall(jarr, GetSize); i++) {
 		CMUTIL_JsonObject *dcfg = NULL;
 
-		item = CMUTIL_CALL(jarr, Get, i);
-		if (CMUTIL_CALL(item, GetType) != CMUTIL_JsonTypeObject) {
+		item = CMCall(jarr, Get, i);
+		if (CMCall(item, GetType) != CMUTIL_JsonTypeObject) {
 			CMLogErrorS("invalid configuration structure.");
 			goto ENDPOINT;
 		}
 
 		dcfg = (CMUTIL_JsonObject*)item;;
-		type = CMUTIL_CALL(dcfg, GetString, "type");
+		type = CMCall(dcfg, GetString, "type");
 		if (type == NULL) {
 			CMLogErrorS("database item does not have 'type' property.");
 			goto ENDPOINT;
 		}
-		ltype = CMUTIL_CALL(type, ToLower);
+		ltype = CMCall(type, ToLower);
 		if (!CMDBM_ContextParseDatabase(
-					context, CMUTIL_CALL(ltype, GetCString), dcfg)) {
+					context, CMCall(ltype, GetCString), dcfg)) {
 			CMLogError("database configuration parse failed.");
 			goto ENDPOINT;
 		}
 	}
 
 	// TODO: load logging config
-	res = CMUTIL_True;
+	res = CMTrue;
 ENDPOINT:
-	if (ltype) CMUTIL_CALL(ltype, Destroy);
+	if (ltype) CMCall(ltype, Destroy);
 
 	return res;
 }
@@ -363,15 +364,15 @@ CMDBM_STATIC CMUTIL_Bool CMDBM_ContextInitialize(
         const char *progcharset,
         CMUTIL_Timer *timer)
 {
-	CMUTIL_Bool res = CMUTIL_False;
+	CMUTIL_Bool res = CMFalse;
 	CMUTIL_Json *conf = NULL;
 
 	if (confjson) {
 		CMUTIL_File *cfile = CMUTIL_FileCreate(confjson);
-		CMUTIL_String *content = CMUTIL_CALL(cfile, GetContents);
+		CMUTIL_String *content = CMCall(cfile, GetContents);
 		if (content) conf = CMUTIL_JsonParse(content);
-		if (cfile) CMUTIL_CALL(cfile, Destroy);
-		if (content) CMUTIL_CALL(content, Destroy);
+		if (cfile) CMCall(cfile, Destroy);
+		if (content) CMCall(content, Destroy);
 	}
 
 	if (!progcharset) progcharset = "UTF-8";
@@ -380,7 +381,7 @@ CMDBM_STATIC CMUTIL_Bool CMDBM_ContextInitialize(
         ictx->timer = timer;
     } else {
 		ictx->timer = CMUTIL_TimerCreateEx(1000, 2);
-        ictx->istimerinternal = CMUTIL_True;
+        ictx->istimerinternal = CMTrue;
     }
 
 	if (conf) {
@@ -391,7 +392,7 @@ CMDBM_STATIC CMUTIL_Bool CMDBM_ContextInitialize(
 		}
 	}
 
-	res = CMUTIL_True;
+	res = CMTrue;
 ENDPOINT:
 	if (conf) CMUTIL_JsonDestroy(conf);
 	return res;
@@ -400,7 +401,7 @@ ENDPOINT:
 CMDBM_STATIC CMUTIL_Bool CMDBM_ContextAddDatabase(
 		CMDBM_Context *ctx, CMDBM_Database *db)
 {
-	CMUTIL_Bool res = CMUTIL_False;
+	CMUTIL_Bool res = CMFalse;
 	CMDBM_Context_Internal *ictx = (CMDBM_Context_Internal*)ctx;
 	CMDBM_DatabaseEx *edb = (CMDBM_DatabaseEx*)db;
 	const char *dbid = NULL;
@@ -409,14 +410,14 @@ CMDBM_STATIC CMUTIL_Bool CMDBM_ContextAddDatabase(
 		CMLogError("invalid parameter.");
 		goto ENDPOINT;
 	}
-	dbid = CMUTIL_CALL(edb, GetId);
+	dbid = CMCall(edb, GetId);
 
-	if (!CMUTIL_CALL(edb, Initialize, ictx->timer, ictx->progcs)) {
+	if (!CMCall(edb, Initialize, ictx->timer, ictx->progcs)) {
 		CMLogError("database(%s) initialization failed.", dbid);
 		goto ENDPOINT;
 	}
-	CMUTIL_CALL(ictx->databases, Put, dbid, db);
-	res = CMUTIL_True;
+	CMCall(ictx->databases, Put, dbid, db);
+	res = CMTrue;
 ENDPOINT:
 	return res;
 }
@@ -435,10 +436,10 @@ CMDBM_STATIC void CMDBM_ContextDestroy(CMDBM_Context *ctx)
 {
 	CMDBM_Context_Internal *ictx = (CMDBM_Context_Internal*)ctx;
 	if (ictx) {
-		if (ictx->istimerinternal) CMUTIL_CALL(ictx->timer, Destroy);
-		if (ictx->databases) CMUTIL_CALL(ictx->databases, Destroy);
-		if (ictx->poolconfs) CMUTIL_CALL(ictx->poolconfs, Destroy);
-		if (ictx->libctx) CMUTIL_CALL(ictx->libctx, Destroy);
+		if (ictx->istimerinternal) CMCall(ictx->timer, Destroy);
+		if (ictx->databases) CMCall(ictx->databases, Destroy);
+		if (ictx->poolconfs) CMCall(ictx->poolconfs, Destroy);
+		if (ictx->libctx) CMCall(ictx->libctx, Destroy);
 		if (ictx->progcs) CMFree(ictx->progcs);
 		CMFree(ictx);
 	}
@@ -450,7 +451,7 @@ CMDBM_STATIC CMDBM_DatabaseEx *CMDBM_ContextGetDatabase(
 	CMDBM_Context_Internal *ictx = (CMDBM_Context_Internal*)ctx;
 	CMDBM_DatabaseEx *res = NULL;
 
-	res = (CMDBM_DatabaseEx*)CMUTIL_CALL(ictx->databases, Get, dbid);
+	res = (CMDBM_DatabaseEx*)CMCall(ictx->databases, Get, dbid);
 	if (res == NULL)
 		CMLogError("source id(%s) not found in this CMDBM context.", dbid);
 	return res;
@@ -476,16 +477,16 @@ CMDBM_Context *CMDBM_ContextCreate(
 	memcpy(res, &g_cmdbm_context, sizeof(CMDBM_ContextEx));
 
     res->databases = CMUTIL_MapCreateEx(
-                32, CMUTIL_False, CMDBM_ContextDatabaseDestroyer);
+                32, CMFalse, CMDBM_ContextDatabaseDestroyer);
     res->poolconfs = CMUTIL_MapCreateEx(
-                16, CMUTIL_False, CMDBM_ContextPoolConfDestroyer);
+                16, CMFalse, CMDBM_ContextPoolConfDestroyer);
 
     res->libctx = CMUTIL_MapCreateEx(
-                32, CMUTIL_False, CMDBM_ContextDBLibDestroyer);
+                32, CMFalse, CMDBM_ContextDBLibDestroyer);
 
 	if (!CMDBM_ContextInitialize(res, confjson, progcharset, timer)) {
 		CMLogError("context initializing failed.");
-		CMUTIL_CALL((CMDBM_Context*)res, Destroy);
+		CMCall((CMDBM_Context*)res, Destroy);
 		res = NULL;
 	}
 
