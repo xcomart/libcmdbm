@@ -15,7 +15,7 @@ typedef struct CMDBM_Connection CMDBM_Connection;
 struct CMDBM_Connection {
 	char *(*GetBindString)(
 			CMDBM_Connection *conn,
-			int index,
+            uint index,
 			char *buffer);
 	CMUTIL_XmlNode *(*GetQuery)(
 			CMDBM_Connection *conn,
@@ -98,6 +98,22 @@ struct CMDBM_ContextEx {
 			CMDBM_ContextEx *ctx,
 			const char *dbid);
 };
+
+#if defined(CMDBM_ODBC)
+extern CMDBM_ModuleInterface g_cmdbm_odbc_interface;
+#endif
+#if defined(CMDBM_ORACLE)
+extern CMDBM_ModuleInterface g_cmdbm_oracle_interface;
+#endif
+#if defined(CMDBM_MYSQL)
+extern CMDBM_ModuleInterface g_cmdbm_mysql_interface;
+#endif
+#if defined(CMDBM_SQLITE)
+extern CMDBM_ModuleInterface g_cmdbm_sqlite_interface;
+#endif
+#if defined(CMDBM_PGSQL)
+extern CMDBM_ModuleInterface g_cmdbm_pgsql_interface;
+#endif
 
 #endif // __TYPES_H__
 

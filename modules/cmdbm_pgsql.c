@@ -1,11 +1,9 @@
+
+#include "functions.h"
+
 #ifdef CMDBM_PGSQL
 
-#if defined(DEBUG)
-# include "functions.h"
-#else
-# include "libcmdbm.h"
-# define CMDBM_STATIC	static
-#endif
+CMUTIL_LogDefine("cmdbm.module.pgsql")
 
 CMDBM_STATIC void CMDBM_PgSQL_LibraryInit()
 {

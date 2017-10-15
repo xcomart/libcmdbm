@@ -7,8 +7,9 @@ CMDBM_STATIC char* CMDBM_RevCaseEnds(char *q, char *limit, char *n)
 {
 	int ed = (int)strlen(n);
 	char *p = n + ed - 1;
-	while (limit < p && n < q && toupper(*q) == toupper(*p))
-		q--, p--;
+    while (limit < p && n < q && toupper(*q) == toupper(*p)) {
+        q--; p--;
+    }
 	return n == p && toupper(*q) == toupper(*p)? q:NULL;
 }
 
@@ -23,19 +24,19 @@ CMDBM_STATIC char* CMDBM_CaseStarts(char *p, char *limit, char *n)
 CMDBM_STATIC CMUTIL_Bool CMDBM_TestExpr(CMDBM_Session *sess,
 		CMUTIL_JsonObject *params, CMUTIL_Iterator *iter, CMUTIL_Bool isOpen)
 {
-	CMUTIL_Bool res = CMUTIL_False;
-	while (CMUTIL_CALL(iter, HasNext)) {
-		CMDBM_CompItem *c = (CMDBM_CompItem*)CMUTIL_CALL(iter, Next);
+	CMUTIL_Bool res = CMFalse;
+	while (CMCall(iter, HasNext)) {
+		CMDBM_CompItem *c = (CMDBM_CompItem*)CMCall(iter, Next);
 		if (c->type == CMDBM_ETOpen) {
-			res = CMDBM_TestExpr(sess, params, iter, CMUTIL_True);
+			res = CMDBM_TestExpr(sess, params, iter, CMTrue);
 		} else if (c->type == CMDBM_ETClose) {
 			return res;
 		} else if (c->type == CMDBM_ETAnd) {
 			if (!res) {
 				if (isOpen) {
-					while (CMUTIL_CALL(iter, HasNext)) {
+					while (CMCall(iter, HasNext)) {
 						CMDBM_CompItem *o =
-								(CMDBM_CompItem*)CMUTIL_CALL(iter, Next);
+								(CMDBM_CompItem*)CMCall(iter, Next);
 						if (o->type == CMDBM_ETClose)
 							return res;
 					}
@@ -46,9 +47,9 @@ CMDBM_STATIC CMUTIL_Bool CMDBM_TestExpr(CMDBM_Session *sess,
 		} else if (c->type == CMDBM_ETOr) {
 			if (res) {
 				if (isOpen) {
-					while (CMUTIL_CALL(iter, HasNext)) {
+					while (CMCall(iter, HasNext)) {
 						CMDBM_CompItem *o =
-								(CMDBM_CompItem*)CMUTIL_CALL(iter, Next);
+								(CMDBM_CompItem*)CMCall(iter, Next);
 						if (o->type == CMDBM_ETClose)
 							return res;
 					}
@@ -57,13 +58,13 @@ CMDBM_STATIC CMUTIL_Bool CMDBM_TestExpr(CMDBM_Session *sess,
 				}
 			}
 		} else {
-			const char *sp1 = CMUTIL_CALL(c->aname, GetCString);
-			const char *sp2 = CMUTIL_CALL(c->bname, GetCString);
+			const char *sp1 = CMCall(c->aname, GetCString);
+			const char *sp2 = CMCall(c->bname, GetCString);
 			if (!c->aconst) {
-				sp1 = CMUTIL_CALL(params, GetCString, sp1);
+				sp1 = CMCall(params, GetCString, sp1);
 			}
 			if (!c->bconst) {
-				sp2 = CMUTIL_CALL(params, GetCString, sp2);
+				sp2 = CMCall(params, GetCString, sp2);
 			}
 			res = c->comparator(sp1, sp2);
 		}
@@ -93,15 +94,16 @@ CMDBM_STATIC CMUTIL_Bool CMDBM_BuildChildren(
 		CMUTIL_JsonObject *outs,
 		CMUTIL_List *rembuf)
 {
-	int i, size = CMUTIL_CALL(node, ChildCount);
+    uint i;
+    size_t size = CMCall(node, ChildCount);
 
 	for (i=0; i<size; i++) {
-		CMUTIL_XmlNode *cld = CMUTIL_CALL(node, ChildAt, i);
+		CMUTIL_XmlNode *cld = CMCall(node, ChildAt, i);
 		if (!CMDBM_BuildNode(sess, conn, cld, params, bindings,
 							 after, obuf, outs, rembuf))
-			return CMUTIL_False;
+			return CMFalse;
 	}
-	return CMUTIL_True;
+	return CMTrue;
 }
 
 CMDBM_STATIC CMUTIL_Bool CMDBM_BuildText(
@@ -115,10 +117,10 @@ CMDBM_STATIC CMUTIL_Bool CMDBM_BuildText(
 		CMUTIL_JsonObject *outs,
 		CMUTIL_List *rembuf)
 {
-	const char *text = CMUTIL_CALL(node, GetName);
-	CMUTIL_CALL(obuf, AddString, text);
+	const char *text = CMCall(node, GetName);
+	CMCall(obuf, AddString, text);
 	CMUTIL_UNUSED(sess, conn, params, bindings, after, outs, rembuf);
-	return CMUTIL_True;
+	return CMTrue;
 }
 
 CMDBM_STATIC CMUTIL_Bool CMDBM_BuildParamSet(
@@ -134,30 +136,30 @@ CMDBM_STATIC CMUTIL_Bool CMDBM_BuildParamSet(
 {
 	CMUTIL_String *name, *val, *type;
 
-	name = CMUTIL_CALL(node, GetAttribute, "name");
-	val = CMUTIL_CALL(node, GetAttribute, "value");
-	type = CMUTIL_CALL(node, GetAttribute, "type");	// optional(string default)
+	name = CMCall(node, GetAttribute, "name");
+	val = CMCall(node, GetAttribute, "value");
+	type = CMCall(node, GetAttribute, "type");	// optional(string default)
 	if (name && val && params) {
-		const char *sname = CMUTIL_CALL(name, GetCString);
-		const char *sval = CMUTIL_CALL(val, GetCString);
+		const char *sname = CMCall(name, GetCString);
+		const char *sval = CMCall(val, GetCString);
 		const char *stype = "string";
-		if (type) stype = CMUTIL_CALL(type, GetCString);
+		if (type) stype = CMCall(type, GetCString);
 		if (strcasecmp(stype, "string") == 0) {
-			CMUTIL_CALL(params, PutString, sname, sval);
+			CMCall(params, PutString, sname, sval);
 		} else if (strcasecmp(stype, "int") ||
 				   strcasecmp(stype, "long")) {
-			CMUTIL_CALL(params, PutLong, sname, atoll(sval));
+			CMCall(params, PutLong, sname, atoll(sval));
 		} else if (strcasecmp(stype, "float") ||
 				   strcasecmp(stype, "double")) {
-			CMUTIL_CALL(params, PutDouble, sname, atof(sval));
+			CMCall(params, PutDouble, sname, atof(sval));
 		} else {
 			CMLogErrorS("unknown parameter type: %s", sval);
-			return CMUTIL_False;
+			return CMFalse;
 		}
-		return CMUTIL_True;
+		return CMTrue;
 	}
 	CMUTIL_UNUSED(sess, conn, bindings, after, obuf, outs, rembuf);
-	return CMUTIL_False;
+	return CMFalse;
 }
 
 CMDBM_STATIC CMUTIL_Bool CMDBM_BuildOutParam(
@@ -171,22 +173,22 @@ CMDBM_STATIC CMUTIL_Bool CMDBM_BuildOutParam(
 		CMUTIL_JsonObject *outs,
 		CMUTIL_List *rembuf)
 {
-	const char *key = CMUTIL_CALL(node, GetName);
+	const char *key = CMCall(node, GetName);
 	char pbuf[1024];
-	int idx = CMUTIL_CALL(bindings, GetSize);
-	CMUTIL_Json *value = CMUTIL_CALL(params, Get, key);
+    uint idx = (uint)CMCall(bindings, GetSize);
+	CMUTIL_Json *value = CMCall(params, Get, key);
 
-	CMUTIL_CALL(conn, GetBindString, idx, pbuf);
-	CMUTIL_CALL(obuf, AddString, pbuf);
+	CMCall(conn, GetBindString, idx, pbuf);
+	CMCall(obuf, AddString, pbuf);
 	if (!value) {
-		CMUTIL_CALL(params, PutString, key, "1");
-		value = CMUTIL_CALL(params, Get, key);
+		CMCall(params, PutString, key, "1");
+		value = CMCall(params, Get, key);
 	}
 	sprintf(pbuf, "%d", idx);
-	CMUTIL_CALL(outs, Put, pbuf, value);
-	CMUTIL_CALL(bindings, Add, value);
+	CMCall(outs, Put, pbuf, value);
+	CMCall(bindings, Add, value);
 	CMUTIL_UNUSED(sess, after, rembuf);
-	return CMUTIL_True;
+	return CMTrue;
 }
 
 CMDBM_STATIC CMUTIL_Bool CMDBM_BuildReplace(
@@ -200,17 +202,17 @@ CMDBM_STATIC CMUTIL_Bool CMDBM_BuildReplace(
 		CMUTIL_JsonObject *outs,
 		CMUTIL_List *rembuf)
 {
-	const char *key = CMUTIL_CALL(node, GetName);
-	CMUTIL_Json *pitem = CMUTIL_CALL(params, Get, key);
-	CMUTIL_JsonType jtype = CMUTIL_CALL(pitem, GetType);
+	const char *key = CMCall(node, GetName);
+	CMUTIL_Json *pitem = CMCall(params, Get, key);
+	CMUTIL_JsonType jtype = CMCall(pitem, GetType);
 	CMUTIL_UNUSED(sess, conn, bindings, after, outs, rembuf);
 	if (jtype == CMUTIL_JsonTypeValue) {
-		CMUTIL_String *str = CMUTIL_CALL(params, GetString, key);
-		CMUTIL_CALL(obuf, AddAnother, str);
-		return CMUTIL_True;
+		CMUTIL_String *str = CMCall(params, GetString, key);
+		CMCall(obuf, AddAnother, str);
+		return CMTrue;
 	} else {
 		CMLogErrorS("replacement of parameter is not value type.(key:%s)", key);
-		return CMUTIL_False;
+		return CMFalse;
 	}
 }
 
@@ -227,8 +229,8 @@ CMDBM_STATIC CMUTIL_Bool CMDBM_BuildInclude(
 {
 	CMUTIL_XmlNode *refqry = NULL;
 
-	const char *nodename = CMUTIL_CALL(node, GetName);
-	refqry = (CMUTIL_XmlNode*)CMUTIL_CALL(conn, GetQuery, nodename);
+	const char *nodename = CMCall(node, GetName);
+	refqry = (CMUTIL_XmlNode*)CMCall(conn, GetQuery, nodename);
 	if (refqry) {
 		if (CMDBM_MapperGetNodeType(refqry) == CMDBM_NTSqlFrag) {
 			return CMDBM_BuildNode(sess, conn, refqry, params, bindings, after,
@@ -239,7 +241,7 @@ CMDBM_STATIC CMUTIL_Bool CMDBM_BuildInclude(
 	} else {
 		CMLogErrorS("sql item not exists: %s", nodename);
 	}
-	return CMUTIL_False;
+	return CMFalse;
 }
 
 CMDBM_STATIC CMUTIL_Bool CMDBM_BuildBind(
@@ -253,19 +255,19 @@ CMDBM_STATIC CMUTIL_Bool CMDBM_BuildBind(
 		CMUTIL_JsonObject *outs,
 		CMUTIL_List *rembuf)
 {
-	const char *key = CMUTIL_CALL(node, GetName);
-	CMUTIL_Json *data = CMUTIL_CALL(params, Get, key);
+	const char *key = CMCall(node, GetName);
+	CMUTIL_Json *data = CMCall(params, Get, key);
 	CMUTIL_UNUSED(sess, after, outs, rembuf);
 	if (data) {
-		int index = CMUTIL_CALL(bindings, GetSize);
+        uint index = (uint)CMCall(bindings, GetSize);
 		char buf[50];
-		CMUTIL_CALL(conn, GetBindString, index, buf);
-		CMUTIL_CALL(obuf, AddString, buf);
-		CMUTIL_CALL(bindings, Add, data);
-		return CMUTIL_True;
+		CMCall(conn, GetBindString, index, buf);
+		CMCall(obuf, AddString, buf);
+		CMCall(bindings, Add, data);
+		return CMTrue;
 	} else {
 		CMLogErrorS("parameter has no key: %s", key);
-		return CMUTIL_False;
+		return CMFalse;
 	}
 }
 
@@ -280,27 +282,27 @@ CMDBM_STATIC CMUTIL_Bool CMDBM_BuildTrim(
 		CMUTIL_JsonObject *outs,
 		CMUTIL_List *rembuf)
 {
-	CMUTIL_Bool res = CMUTIL_False;
+	CMUTIL_Bool res = CMFalse;
 	CMUTIL_String *sbuf = CMUTIL_StringCreate();
 
 	if (CMDBM_BuildChildren(sess, conn, node, params, bindings,
 							after, sbuf, outs, rembuf)) {
-		CMUTIL_String *sprfx = CMUTIL_CALL(node,GetAttribute,"prefix");
-		CMUTIL_String *ssufx = CMUTIL_CALL(node,GetAttribute,"suffix");
-		CMUTIL_String *sprov = CMUTIL_CALL(node,GetAttribute,"prefixOverrides");
-		CMUTIL_String *ssuov = CMUTIL_CALL(node,GetAttribute,"suffixOverrides");
-		const char *prfx = CMUTIL_CALL(sprfx, GetCString);
-		const char *sufx = CMUTIL_CALL(ssufx, GetCString);
-		const char *prov = CMUTIL_CALL(sprov, GetCString);
-		const char *suov = CMUTIL_CALL(ssuov, GetCString);
+		CMUTIL_String *sprfx = CMCall(node,GetAttribute,"prefix");
+		CMUTIL_String *ssufx = CMCall(node,GetAttribute,"suffix");
+		CMUTIL_String *sprov = CMCall(node,GetAttribute,"prefixOverrides");
+		CMUTIL_String *ssuov = CMCall(node,GetAttribute,"suffixOverrides");
+		const char *prfx = CMCall(sprfx, GetCString);
+		const char *sufx = CMCall(ssufx, GetCString);
+		const char *prov = CMCall(sprov, GetCString);
+		const char *suov = CMCall(ssuov, GetCString);
 
-		char *p = (char*)CMUTIL_CALL(sbuf, GetCString);
+		char *p = (char*)CMCall(sbuf, GetCString);
 		char *q = p, *r;
 		CMUTIL_StringArray *subs = NULL;
-		int i;
+        uint i;
 
 		// save string end pointer
-		r = p + CMUTIL_CALL(sbuf, GetSize);
+		r = p + CMCall(sbuf, GetSize);
 
 		// remove preceeding spaces
 		while (*p && strchr(CMDBM_SPACES, *p)) p++;
@@ -310,9 +312,9 @@ CMDBM_STATIC CMUTIL_Bool CMDBM_BuildTrim(
 		// override suffix
 		if (suov) {
 			subs = CMUTIL_StringSplit(suov, "|");
-			for (i=0; i<CMUTIL_CALL(subs, GetSize); i++) {
-				CMUTIL_String *sd = CMUTIL_CALL(subs, GetAt, i);
-				char *d = (char*)CMUTIL_CALL(sd, GetCString);
+			for (i=0; i<CMCall(subs, GetSize); i++) {
+				CMUTIL_String *sd = CMCall(subs, GetAt, i);
+				char *d = (char*)CMCall(sd, GetCString);
 				q = CMDBM_RevCaseEnds(r-1, p, d);
 				if (q && (strchr(CMDBM_SQLDELIMS, *(q-1)) ||
 						  strchr(CMDBM_SQLDELIMS, *d))) {
@@ -320,15 +322,15 @@ CMDBM_STATIC CMUTIL_Bool CMDBM_BuildTrim(
 					break;
 				}
 			}
-			CMUTIL_CALL(subs, Destroy);
+			CMCall(subs, Destroy);
 		}
 
 		// override prefix
 		if (prov) {
 			subs = CMUTIL_StringSplit(prov, "|");
-			for (i=0; i<CMUTIL_CALL(subs, GetSize); i++) {
-				CMUTIL_String *sd = CMUTIL_CALL(subs, GetAt, i);
-				char *d = (char*)CMUTIL_CALL(sd, GetCString);
+			for (i=0; i<CMCall(subs, GetSize); i++) {
+				CMUTIL_String *sd = CMCall(subs, GetAt, i);
+				char *d = (char*)CMCall(sd, GetCString);
 				q = CMDBM_CaseStarts(p, r, d);
 				if (q && (strchr(CMDBM_SQLDELIMS, *q) ||
 						strchr(CMDBM_SQLDELIMS, *d))) {
@@ -336,26 +338,26 @@ CMDBM_STATIC CMUTIL_Bool CMDBM_BuildTrim(
 					break;
 				}
 			}
-			CMUTIL_CALL(subs, Destroy);
+			CMCall(subs, Destroy);
 		}
 
 		// remove preceeding spaces
 		while (*p && strchr(CMDBM_SPACES, *p) && p < r) p++;
 
 		if (p < r) {
-			CMUTIL_CALL(obuf, AddChar, ' ');
+			CMCall(obuf, AddChar, ' ');
 			if (prfx)
-				CMUTIL_CALL(obuf, AddString, prfx);
-			CMUTIL_CALL(obuf, AddNString, p, r-p);
-			CMUTIL_CALL(obuf, AddChar, ' ');
+				CMCall(obuf, AddString, prfx);
+            CMCall(obuf, AddNString, p, (size_t)(r-p));
+			CMCall(obuf, AddChar, ' ');
 			if (sufx)
-				CMUTIL_CALL(obuf, AddString, sufx);
+				CMCall(obuf, AddString, sufx);
 		}
 
-		res = CMUTIL_True;
+		res = CMTrue;
 	}
 
-	CMUTIL_CALL(sbuf, Destroy);
+	CMCall(sbuf, Destroy);
 	return res;
 }
 
@@ -374,71 +376,72 @@ CMDBM_STATIC CMUTIL_Bool CMDBM_BuildForeach(
 	const char *sitemkey, *sindexkey, *scolkey;
 	CMUTIL_Json *itembackup, *indexbackup;
 	CMUTIL_JsonArray *collection;
-	int i, size;
+    uint i;
+    size_t size;
 
-	scoll = CMUTIL_CALL(node, GetAttribute, "collection");
-	sopen = CMUTIL_CALL(node, GetAttribute, "open");
-	sclose = CMUTIL_CALL(node, GetAttribute, "close");
-	ssep = CMUTIL_CALL(node, GetAttribute, "separator");
+	scoll = CMCall(node, GetAttribute, "collection");
+	sopen = CMCall(node, GetAttribute, "open");
+	sclose = CMCall(node, GetAttribute, "close");
+	ssep = CMCall(node, GetAttribute, "separator");
 
 	if (scoll == NULL) {
 		CMLogErrorS("foreach tag must have collection attribute.");
-		return CMUTIL_False;
+		return CMFalse;
 	}
-	scolkey = CMUTIL_CALL(scoll, GetCString);
+	scolkey = CMCall(scoll, GetCString);
 
 	// dynamic named variables.
-	sitem = CMUTIL_CALL(node, GetAttribute, "item");
-	sindex = CMUTIL_CALL(node, GetAttribute, "index");
+	sitem = CMCall(node, GetAttribute, "item");
+	sindex = CMCall(node, GetAttribute, "index");
 
 	if (sitem == NULL)
 		CMLogWarn("foreach tag has no item attribute. are you intended?");
 
-	sitemkey = sitem? CMUTIL_CALL(sitem, GetCString):NULL;
-	sindexkey = sindex? CMUTIL_CALL(sindex, GetCString):NULL;
+	sitemkey = sitem? CMCall(sitem, GetCString):NULL;
+	sindexkey = sindex? CMCall(sindex, GetCString):NULL;
 
-	collection = (CMUTIL_JsonArray*)CMUTIL_CALL(params, Get, scolkey);
+	collection = (CMUTIL_JsonArray*)CMCall(params, Get, scolkey);
 	if (collection == NULL) {
 		CMLogErrorS("parameter have no collection with key '%s'", scolkey);
-		return CMUTIL_False;
+		return CMFalse;
 	}
-	if (CMUTIL_CALL(&(collection->parent), GetType) != CMUTIL_JsonTypeArray) {
+	if (CMCall(&(collection->parent), GetType) != CMUTIL_JsonTypeArray) {
 		CMLogErrorS("parameter item '%s' is not a collection.", scolkey);
-		return CMUTIL_False;
+		return CMFalse;
 	}
-	size = CMUTIL_CALL(collection, GetSize);
+	size = CMCall(collection, GetSize);
 
-	itembackup = sitem? CMUTIL_CALL(params, Remove, sitemkey):NULL;
-	indexbackup = sindex? CMUTIL_CALL(params, Remove, sindexkey):NULL;
+	itembackup = sitem? CMCall(params, Remove, sitemkey):NULL;
+	indexbackup = sindex? CMCall(params, Remove, sindexkey):NULL;
 
-	if (sopen) CMUTIL_CALL(obuf, AddAnother, sopen);
+	if (sopen) CMCall(obuf, AddAnother, sopen);
 	for (i=0; i<size; i++) {
-		CMUTIL_Json *item = CMUTIL_CALL(collection, Get, i);
+		CMUTIL_Json *item = CMCall(collection, Get, i);
 		CMUTIL_Json *idx;
-		CMUTIL_CALL(params, Put, sitemkey, item);
-		CMUTIL_CALL(params, PutLong, sindexkey, i);
+		CMCall(params, Put, sitemkey, item);
+		CMCall(params, PutLong, sindexkey, i);
 
 		// build child nodes
 		if (!CMDBM_BuildChildren(sess, conn, node, params, bindings,
 								 after, obuf, outs, rembuf))
-			return CMUTIL_False;
+			return CMFalse;
 
 		if (ssep && i < (size-1))
-			CMUTIL_CALL(obuf, AddAnother, ssep);
+			CMCall(obuf, AddAnother, ssep);
 
 		// remove item for not be destroyed.
-		CMUTIL_CALL(params, Remove, sitemkey);
+		CMCall(params, Remove, sitemkey);
 
 		// save index item to destroy after execution.
-		idx = CMUTIL_CALL(params, Remove, sindexkey);
-		CMUTIL_CALL(rembuf, AddTail, idx);
+		idx = CMCall(params, Remove, sindexkey);
+		CMCall(rembuf, AddTail, idx);
 	}
-	if (sclose) CMUTIL_CALL(obuf, AddAnother, sclose);
+	if (sclose) CMCall(obuf, AddAnother, sclose);
 
-	if (itembackup) CMUTIL_CALL(params, Put, sitemkey, itembackup);
-	if (indexbackup) CMUTIL_CALL(params, Put, sindexkey, indexbackup);
+	if (itembackup) CMCall(params, Put, sitemkey, itembackup);
+	if (indexbackup) CMCall(params, Put, sindexkey, indexbackup);
 
-	return CMUTIL_True;
+	return CMTrue;
 }
 
 CMDBM_STATIC CMUTIL_Bool CMDBM_BuildIfBase(
@@ -453,19 +456,19 @@ CMDBM_STATIC CMUTIL_Bool CMDBM_BuildIfBase(
 		CMUTIL_List *rembuf,
 		CMUTIL_Bool *isAdded)
 {
-	CMUTIL_Bool res = CMUTIL_False;
-	CMUTIL_List *data = CMUTIL_CALL(node, GetUserData);
-	CMUTIL_Iterator *iter = CMUTIL_CALL(data, Iterator);
-	if (CMDBM_TestExpr(sess, params, iter, CMUTIL_False)) {
+	CMUTIL_Bool res = CMFalse;
+	CMUTIL_List *data = CMCall(node, GetUserData);
+	CMUTIL_Iterator *iter = CMCall(data, Iterator);
+	if (CMDBM_TestExpr(sess, params, iter, CMFalse)) {
 		res = CMDBM_BuildChildren(sess, conn, node, params, bindings,
 								  after, obuf, outs, rembuf);
 		if (isAdded)
-			*isAdded = CMUTIL_True;
+			*isAdded = CMTrue;
 	} else {
-		res = CMUTIL_True;
+		res = CMTrue;
 	}
 	if (iter)
-		CMUTIL_CALL(iter, Destroy);
+		CMCall(iter, Destroy);
 	return res;
 }
 
@@ -480,36 +483,37 @@ CMDBM_STATIC CMUTIL_Bool CMDBM_BuildChoose(
 		CMUTIL_JsonObject *outs,
 		CMUTIL_List *rembuf)
 {
-	CMUTIL_Bool isApplied = CMUTIL_False;
-	int i, size = CMUTIL_CALL(node, ChildCount);
+	CMUTIL_Bool isApplied = CMFalse;
+    uint i;
+    size_t size = CMCall(node, ChildCount);
 
 	for(i=0; i<size && !isApplied; i++) {
-		CMUTIL_XmlNode *child = CMUTIL_CALL(node, ChildAt, i);
+		CMUTIL_XmlNode *child = CMCall(node, ChildAt, i);
 		switch(CMDBM_MapperGetNodeType(child)) {
 		case CMDBM_NTSqlIf:
 			if (!isApplied) {
 				if (!CMDBM_BuildIfBase(sess, conn, child, params, bindings,
 									   after, obuf, outs, rembuf, &isApplied))
-					return CMUTIL_False;
+					return CMFalse;
 			}
 			break;
 		case CMDBM_NTSqlOtherwise:
 			if (!isApplied) {
 				if (!CMDBM_BuildNode(sess, conn, child, params, bindings,
 									 after, obuf, outs, rembuf))
-					return CMUTIL_False;
-				isApplied = CMUTIL_True;
+					return CMFalse;
+				isApplied = CMTrue;
 			}
 			break;
 		default:
 			if (!CMDBM_BuildNode(sess, conn, child, params, bindings,
 								 after, obuf, outs, rembuf))
-				return CMUTIL_False;
+				return CMFalse;
 			break;
 		}
 	}
 
-	return CMUTIL_True;
+	return CMTrue;
 }
 
 CMDBM_STATIC CMUTIL_Bool CMDBM_BuildIf(
@@ -538,48 +542,48 @@ CMDBM_STATIC CMUTIL_Bool CMDBM_BuildSelectKey(
 		CMUTIL_JsonObject *outs,
 		CMUTIL_List *rembuf)
 {
-	CMUTIL_Bool res = CMUTIL_False;
+	CMUTIL_Bool res = CMFalse;
 	const char *key, *order;
 	CMUTIL_String *sbuf = CMUTIL_StringCreate();
 	CMUTIL_JsonArray *nbinds = CMUTIL_JsonArrayCreate();
-	CMUTIL_Bool beval = CMUTIL_False;
+	CMUTIL_Bool beval = CMFalse;
 	CMUTIL_String *stmp;
 
 	CMUTIL_UNUSED(bindings, obuf);
 
-	stmp = CMUTIL_CALL(node, GetAttribute, "order");
-	order = CMUTIL_CALL(stmp, GetCString);
+	stmp = CMCall(node, GetAttribute, "order");
+	order = CMCall(stmp, GetCString);
 	if (order && strcasecmp(order, "before") == 0) {
-		beval = CMUTIL_True;
+		beval = CMTrue;
 	} else {
-		if (CMUTIL_CALL(after, Remove, node) != NULL)
+		if (CMCall(after, Remove, node) != NULL)
 			// calling after execution of main query so execute it.
-			beval = CMUTIL_True;
+			beval = CMTrue;
 		else
 			// main query evaluation, so add it to after list.
-			CMUTIL_CALL(after, AddTail, node);
+			CMCall(after, AddTail, node);
 	}
 	if (beval) {
-		stmp = CMUTIL_CALL(node, GetAttribute, "keyProperty");
-		key = CMUTIL_CALL(stmp, GetCString);
+		stmp = CMCall(node, GetAttribute, "keyProperty");
+		key = CMCall(stmp, GetCString);
 
 		res = CMDBM_BuildChildren(
 					sess, conn, node, params, nbinds, after, sbuf, outs, rembuf);
 		if (res) {
 			CMUTIL_JsonValue *value =
-					CMUTIL_CALL(conn, GetObject, sbuf, nbinds, NULL);
+					CMCall(conn, GetObject, sbuf, nbinds, NULL);
 			if (value) {
-				CMUTIL_CALL(params, Put, key, (CMUTIL_Json*)value);
-				res = CMUTIL_True;
+				CMCall(params, Put, key, (CMUTIL_Json*)value);
+				res = CMTrue;
 			} else {
 				CMLogError("query execution failed for selectKey. -> %s", sbuf);
 			}
 		}
 	} else {
-		res = CMUTIL_True;
+		res = CMTrue;
 	}
 	CMUTIL_JsonDestroy(nbinds);
-	CMUTIL_CALL(sbuf, Destroy);
+	CMCall(sbuf, Destroy);
 	return res;
 }
 
@@ -628,5 +632,5 @@ CMUTIL_Bool CMDBM_BuildNode(
 	if (bfunc)
 		return bfunc(sess, conn, node, params, bindings,
 					 after, obuf, outs, rembuf);
-	return CMUTIL_False;
+	return CMFalse;
 }

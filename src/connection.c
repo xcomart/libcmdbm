@@ -19,7 +19,7 @@ typedef struct CMDBM_Cursor_Internal {
 
 CMDBM_STATIC char *CMDBM_ConnectionGetBindString(
 		CMDBM_Connection *conn,
-		int index,
+        uint index,
 		char *buffer)
 {
 	CMDBM_Connection_Internal *iconn = (CMDBM_Connection_Internal*)conn;
@@ -106,14 +106,14 @@ CMDBM_STATIC CMUTIL_XmlNode *CMDBM_ConnectionGetQuery(
 		const char *id)
 {
 	CMDBM_Connection_Internal *iconn = (CMDBM_Connection_Internal*)conn;
-	return CMUTIL_CALL(iconn->db, GetQuery, id);
+	return CMCall(iconn->db, GetQuery, id);
 }
 
 CMDBM_STATIC void CMDBM_ConnectionClose(
 		CMDBM_Connection *conn)
 {
 	CMDBM_Connection_Internal *iconn = (CMDBM_Connection_Internal*)conn;
-	CMUTIL_CALL(iconn->db, ReleaseConnection, conn);
+	CMCall(iconn->db, ReleaseConnection, conn);
     CMLogTrace("connection closed");
 }
 
@@ -175,8 +175,8 @@ CMDBM_Connection *CMDBM_ConnectionCreate(CMDBM_DatabaseEx *db, void *rawconn)
 	memset(res, 0x0, sizeof(CMDBM_Connection_Internal));
 	memcpy(res, &g_cmdbm_connection, sizeof(CMDBM_Connection));
 	res->db = db;
-	res->modif = CMUTIL_CALL(db, GetModuleIF);
-	res->initres = CMUTIL_CALL(db, GetInitResult);
+	res->modif = CMCall(db, GetModuleIF);
+	res->initres = CMCall(db, GetInitResult);
 	res->connection = rawconn;
     CMLogTrace("connection created");
 	return (CMDBM_Connection*)res;

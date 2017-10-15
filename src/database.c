@@ -6,10 +6,11 @@ CMUTIL_LogDefine("cmdbm.database")
 typedef struct CMDBM_MapperFile {
 	CMUTIL_XmlNode			*node;
 	time_t					lastupdt;
-	CMUTIL_Bool				isinset;
 	char					*fpath;
 	CMUTIL_StringArray		*mapperids;
 	CMUTIL_Map				*queries;
+    CMUTIL_Bool				isinset;
+    int                     dummy_padder;
 } CMDBM_MapperFile;
 
 typedef struct CMDBM_MapperFileSet {
@@ -18,6 +19,7 @@ typedef struct CMDBM_MapperFileSet {
 	char					*fpattern;
 	CMUTIL_Map				*queries;
 	CMUTIL_Bool				recursive;
+    int                     dummy_padder;
 } CMDBM_MapperFileSet;
 
 typedef struct CMDBM_Database_Internal {
@@ -34,9 +36,10 @@ typedef struct CMDBM_Database_Internal {
 	CMDBM_PoolConfig		*poolconf;
 	CMUTIL_TimerTask		*monitor;
 	CMUTIL_Pool				*connpool;
-	int						minterval;
 	CMUTIL_JsonObject		*params;
 	CMUTIL_String			*testqry;
+    int						minterval;
+    int                     dummy_padder;
 } CMDBM_Database_Internal;
 
 CMDBM_STATIC CMDBM_PoolConfig *CMDBM_PoolConfigClone(CMDBM_PoolConfig *pconf)
@@ -60,11 +63,11 @@ CMDBM_STATIC void CMDBM_MapperFileDestroy(void *data)
 	CMDBM_MapperFile *mfile = (CMDBM_MapperFile*)data;
 	if (mfile) {
 		if (mfile->mapperids)
-			CMUTIL_CALL(mfile->mapperids, Destroy);
+			CMCall(mfile->mapperids, Destroy);
 		if (mfile->node)
-			CMUTIL_CALL(mfile->node, Destroy);
+			CMCall(mfile->node, Destroy);
 		if (mfile->queries)
-			CMUTIL_CALL(mfile->queries, Destroy);
+			CMCall(mfile->queries, Destroy);
 		if (mfile->fpath)
 			CMFree(mfile->fpath);
 		CMFree(mfile);
@@ -77,31 +80,31 @@ CMDBM_STATIC CMDBM_MapperFile *CMDBM_MapperFileCreate(
 {
 	CMDBM_MapperFile *res = NULL;
 	CMUTIL_File *file = CMUTIL_FileCreate(fpath);
-	if (CMUTIL_CALL(file, IsExists)) {
+	if (CMCall(file, IsExists)) {
 		res = CMAlloc(sizeof(CMDBM_MapperFile));
 		memset(res, 0x0, sizeof(CMDBM_MapperFile));
 		res->node = node;
 		res->isinset = isinset;
-		res->lastupdt = CMUTIL_CALL(file, ModifiedTime);
-		res->mapperids = CMUTIL_CALL(queries, GetKeys);
+		res->lastupdt = CMCall(file, ModifiedTime);
+		res->mapperids = CMCall(queries, GetKeys);
 		res->queries = queries;
 		res->fpath = CMStrdup(fpath);
 	}
-	CMUTIL_CALL(file, Destroy);
+	CMCall(file, Destroy);
 	return res;
 }
 
 CMDBM_STATIC void CMDBM_DatabaseRemoveFile(
 		CMDBM_Database_Internal *idb, const char *fpath)
 {
-	int i;
+    uint i;
 	CMDBM_MapperFile *mfile = NULL;
-	mfile = (CMDBM_MapperFile*)CMUTIL_CALL(idb->mfiles, Remove, fpath);
+	mfile = (CMDBM_MapperFile*)CMCall(idb->mfiles, Remove, fpath);
 	if (mfile) {
-		for (i=0; i<CMUTIL_CALL(mfile->mapperids, GetSize); i++) {
-			CMUTIL_String *sid = CMUTIL_CALL(mfile->mapperids, GetAt, i);
-			const char *id = CMUTIL_CALL(sid, GetCString);
-			CMUTIL_CALL(idb->queries, Remove, id);
+		for (i=0; i<CMCall(mfile->mapperids, GetSize); i++) {
+			CMUTIL_String *sid = CMCall(mfile->mapperids, GetAt, i);
+			const char *id = CMCall(sid, GetCString);
+			CMCall(idb->queries, Remove, id);
 		}
 		CMDBM_MapperFileDestroy(mfile);
 	}
@@ -111,21 +114,21 @@ CMDBM_STATIC CMUTIL_Bool CMDBM_DatabaseAddMapper(
 		CMDBM_Database *db, const char *mapperfile)
 {
 	CMDBM_Database_Internal *idb = (CMDBM_Database_Internal*)db;
-	CMUTIL_Bool res = CMUTIL_False;
+	CMUTIL_Bool res = CMFalse;
 	CMUTIL_XmlNode *mapper = CMUTIL_XmlParseFile(mapperfile);
 	if (mapper) {
 		CMUTIL_Map *queries = CMUTIL_MapCreate();
 		if (CMDBM_MapperRebuildItem(queries, mapper)) {
 			CMDBM_MapperFile *mfile = CMDBM_MapperFileCreate(
-						mapperfile, mapper, CMUTIL_False, queries);
+						mapperfile, mapper, CMFalse, queries);
 			if (mfile != NULL) {
-				CMUTIL_CALL(idb->rwlock, WriteLock);
+				CMCall(idb->rwlock, WriteLock);
 				CMDBM_DatabaseRemoveFile(idb, mapperfile);
-				CMUTIL_CALL(idb->mfiles, Put, mapperfile, mfile);
-				CMUTIL_CALL(idb->queries, PutAll, queries);
-				CMUTIL_CALL(idb->rwlock, WriteUnlock);
+				CMCall(idb->mfiles, Put, mapperfile, mfile);
+				CMCall(idb->queries, PutAll, queries);
+				CMCall(idb->rwlock, WriteUnlock);
 				queries = NULL;
-				res = CMUTIL_True;
+				res = CMTrue;
 			} else {
 				CMLogError("mapper file not exists(%s).", mapperfile);
 			}
@@ -133,18 +136,18 @@ CMDBM_STATIC CMUTIL_Bool CMDBM_DatabaseAddMapper(
 			CMLogError("invalid mapper structure(%s).", mapperfile);
 		}
 		if (queries)
-			CMUTIL_CALL(queries, Destroy);
+			CMCall(queries, Destroy);
 	} else {
 		CMLogError("XML file(%s) parse failed. skipping.", mapperfile);
 	}
-	if (!res && mapper) CMUTIL_CALL(mapper, Destroy);
+	if (!res && mapper) CMCall(mapper, Destroy);
 	return res;
 }
 
 CMDBM_STATIC int CMDBM_DatabaseMapperComp(const void *a, const void *b)
 {
-	CMDBM_MapperFile *fa = (CMDBM_MapperFile*)a;
-	CMDBM_MapperFile *fb = (CMDBM_MapperFile*)b;
+    const CMDBM_MapperFile *fa = (const CMDBM_MapperFile*)a;
+    const CMDBM_MapperFile *fb = (const CMDBM_MapperFile*)b;
 	return strcmp(fa->fpath, fb->fpath);
 }
 
@@ -154,8 +157,8 @@ CMDBM_STATIC void CMDBM_MapperFileSetDestroy(void *data)
 	if (mfset) {
 		if (mfset->dpath) CMFree(mfset->dpath);
 		if (mfset->fpattern) CMFree(mfset->fpattern);
-		if (mfset->mfileset) CMUTIL_CALL(mfset->mfileset, Destroy);
-		if (mfset->queries) CMUTIL_CALL(mfset->queries, Destroy);
+		if (mfset->mfileset) CMCall(mfset->mfileset, Destroy);
+		if (mfset->queries) CMCall(mfset->queries, Destroy);
 		CMFree(mfset);
 	}
 }
@@ -163,9 +166,9 @@ CMDBM_STATIC void CMDBM_MapperFileSetDestroy(void *data)
 CMDBM_STATIC CMDBM_MapperFileSet *CMDBM_DatabaseBuidlMapperSet(
 		const char *dpath, const char  *fpattern, CMUTIL_Bool recursive)
 {
-	int i;
+    uint i;
 	CMUTIL_File *dfile = CMUTIL_FileCreate(dpath);
-	CMUTIL_FileList *flist = CMUTIL_CALL(dfile, Find, fpattern, recursive);
+	CMUTIL_FileList *flist = CMCall(dfile, Find, fpattern, recursive);
 	CMDBM_MapperFileSet *mset = CMAlloc(sizeof(CMDBM_MapperFileSet));
 	memset(mset, 0x0, sizeof(CMDBM_MapperFileSet));
 	mset->dpath = CMStrdup(dpath);
@@ -174,34 +177,34 @@ CMDBM_STATIC CMDBM_MapperFileSet *CMDBM_DatabaseBuidlMapperSet(
 	mset->mfileset = CMUTIL_ArrayCreateEx(
 				10, CMDBM_DatabaseMapperComp, CMDBM_MapperFileDestroy);
 	mset->queries = CMUTIL_MapCreate();
-	for (i=0; i<CMUTIL_CALL(flist, Count); i++) {
-		CMUTIL_Bool succ = CMUTIL_False;
-		CMUTIL_File *cur = CMUTIL_CALL(flist, GetAt, i);
-		const char *fpath = CMUTIL_CALL(cur, GetFullPath);
+	for (i=0; i<CMCall(flist, Count); i++) {
+		CMUTIL_Bool succ = CMFalse;
+		CMUTIL_File *cur = CMCall(flist, GetAt, i);
+		const char *fpath = CMCall(cur, GetFullPath);
 		CMUTIL_XmlNode *mapper = CMUTIL_XmlParseFile(fpath);
 		if (mapper) {
 			CMUTIL_Map *fqrys = CMUTIL_MapCreate();
 			if (CMDBM_MapperRebuildItem(fqrys, mapper)) {
 				CMDBM_MapperFile *mfile = CMDBM_MapperFileCreate(
-							fpath, mapper, CMUTIL_True, fqrys);
-				CMUTIL_CALL(mset->mfileset, Add, mfile);
-				CMUTIL_CALL(mset->queries, PutAll, fqrys);
+							fpath, mapper, CMTrue, fqrys);
+				CMCall(mset->mfileset, Add, mfile);
+				CMCall(mset->queries, PutAll, fqrys);
 				fqrys = NULL;
-				succ = CMUTIL_True;
+				succ = CMTrue;
 			} else {
 				CMLogError("invalid mapper structure(%s). skipped.", fpath);
 			}
 			if (fqrys)
-				CMUTIL_CALL(fqrys, Destroy);
+				CMCall(fqrys, Destroy);
 		} else {
 			CMLogError("invliad xml(%s). skipped",
-					   CMUTIL_CALL(cur, GetFullPath));
+					   CMCall(cur, GetFullPath));
 		}
 		if (!succ && mapper)
-			CMUTIL_CALL(mapper, Destroy);
+			CMCall(mapper, Destroy);
 	}
-	CMUTIL_CALL(flist, Destroy);
-	CMUTIL_CALL(dfile, Destroy);
+	CMCall(flist, Destroy);
+	CMCall(dfile, Destroy);
 	return mset;
 }
 
@@ -211,19 +214,19 @@ CMDBM_STATIC void CMDBM_DatabaseRemoveMapperSet(
 	CMDBM_Database_Internal *idb = (CMDBM_Database_Internal*)db;
 	CMDBM_MapperFileSet *mset = NULL;
 
-	mset = (CMDBM_MapperFileSet*)CMUTIL_CALL(idb->mfsets, Get, key);
+	mset = (CMDBM_MapperFileSet*)CMCall(idb->mfsets, Get, key);
 	if (mset) {
-		int i;
+        uint i;
 		CMUTIL_StringArray *qkeys = NULL;
-		qkeys = CMUTIL_CALL(mset->queries, GetKeys);
+		qkeys = CMCall(mset->queries, GetKeys);
 		if (qkeys) {
-			for (i=0; i<CMUTIL_CALL(qkeys, GetSize); i++) {
-				const char *qkey = CMUTIL_CALL(qkeys, GetCString, i);
-				CMUTIL_CALL(idb->queries, Remove, qkey);
+			for (i=0; i<CMCall(qkeys, GetSize); i++) {
+				const char *qkey = CMCall(qkeys, GetCString, i);
+				CMCall(idb->queries, Remove, qkey);
 			}
-			CMUTIL_CALL(qkeys, Destroy);
+			CMCall(qkeys, Destroy);
 		}
-		CMUTIL_CALL(idb->mfsets, Remove, key);
+		CMCall(idb->mfsets, Remove, key);
 		CMDBM_MapperFileDestroy(mset);
 	} else {
 		CMLogWarn("mapper set(%s) does not exists in this database",
@@ -236,15 +239,15 @@ CMDBM_STATIC CMUTIL_Bool CMDBM_DatabaseAddMapperSet(
         CMUTIL_Bool recursive)
 {
     char key[1024];
-    CMUTIL_Bool res = CMUTIL_True;
+    CMUTIL_Bool res = CMTrue;
 	CMDBM_Database_Internal *idb = (CMDBM_Database_Internal*)db;
 	CMDBM_MapperFileSet *mset = CMDBM_DatabaseBuidlMapperSet(
 				dpath, fpattern, recursive);
 	sprintf(key, "%s;%s", dpath, fpattern);
-	CMUTIL_CALL(idb->rwlock, WriteLock);
-	CMUTIL_CALL(idb->mfsets, Put, key, mset);
-	CMUTIL_CALL(idb->queries, PutAll, mset->queries);
-	CMUTIL_CALL(idb->rwlock, WriteUnlock);
+	CMCall(idb->rwlock, WriteLock);
+	CMCall(idb->mfsets, Put, key, mset);
+	CMCall(idb->queries, PutAll, mset->queries);
+	CMCall(idb->rwlock, WriteUnlock);
     return res;
 }
 
@@ -253,7 +256,7 @@ CMDBM_STATIC CMUTIL_Bool CMDBM_DatabaseSetMonitor(
 {
 	CMDBM_Database_Internal *idb = (CMDBM_Database_Internal*)db;
 	idb->minterval = interval;
-	return CMUTIL_True;
+	return CMTrue;
 }
 
 CMDBM_STATIC void *CMDBM_DatabasePoolCreateProc(void *data)
@@ -272,7 +275,7 @@ CMDBM_STATIC void CMDBM_DatabasePoolDestroyProc(void *resource, void *data)
 {
 	CMDBM_Connection *conn = (CMDBM_Connection*)resource;
 	if (conn)
-		CMUTIL_CALL(conn, CloseReal);
+		CMCall(conn, CloseReal);
 	CMUTIL_UNUSED(data);
 }
 
@@ -281,13 +284,13 @@ CMDBM_STATIC CMUTIL_Bool CMDBM_DatabasePoolTestProc(
 {
 	CMDBM_Database_Internal *idb = (CMDBM_Database_Internal*)data;
 	CMDBM_Connection *conn = (CMDBM_Connection*)resource;
-	CMUTIL_JsonValue *val = CMUTIL_CALL(
+	CMUTIL_JsonValue *val = CMCall(
 				conn, GetObject, idb->testqry, NULL, NULL);
 	if (val) {
 		CMUTIL_JsonDestroy(val);
-		return CMUTIL_True;
+		return CMTrue;
 	}
-	return CMUTIL_False;
+	return CMFalse;
 }
 
 CMDBM_STATIC void CMDBM_DatabaseMapperReloader(void *data)
@@ -297,84 +300,84 @@ CMDBM_STATIC void CMDBM_DatabaseMapperReloader(void *data)
 	CMUTIL_Array *toberem = CMUTIL_ArrayCreate();
 	CMUTIL_Iterator *iter = NULL;
 
-	iter = CMUTIL_CALL(idb->mfiles, Iterator);
-	while (CMUTIL_CALL(iter, HasNext)) {
-		CMDBM_MapperFile *mf = (CMDBM_MapperFile*)CMUTIL_CALL(iter, Next);
+	iter = CMCall(idb->mfiles, Iterator);
+	while (CMCall(iter, HasNext)) {
+		CMDBM_MapperFile *mf = (CMDBM_MapperFile*)CMCall(iter, Next);
 		CMUTIL_File *f = CMUTIL_FileCreate(mf->fpath);
-		if (CMUTIL_CALL(f, IsExists)) {
-			if (CMUTIL_CALL(f, ModifiedTime) != mf->lastupdt)
-				CMUTIL_CALL(toberep, Add, mf);
+		if (CMCall(f, IsExists)) {
+			if (CMCall(f, ModifiedTime) != mf->lastupdt)
+				CMCall(toberep, Add, mf);
 		} else {
-			CMUTIL_CALL(toberem, Add, mf);
+			CMCall(toberem, Add, mf);
 		}
-		CMUTIL_CALL(f, Destroy);
+		CMCall(f, Destroy);
 	}
-	CMUTIL_CALL(iter, Destroy);
+	CMCall(iter, Destroy);
 
 	// replace existing mapper
-	if (CMUTIL_CALL(toberep, GetSize) > 0) {
-		CMUTIL_CALL(idb->rwlock, WriteLock);
-		while (CMUTIL_CALL(toberep, GetSize) > 0) {
+	if (CMCall(toberep, GetSize) > 0) {
+		CMCall(idb->rwlock, WriteLock);
+		while (CMCall(toberep, GetSize) > 0) {
 			CMDBM_MapperFile *mf =
-					(CMDBM_MapperFile*)CMUTIL_CALL(toberep, RemoveAt, 0);
+					(CMDBM_MapperFile*)CMCall(toberep, RemoveAt, 0);
 			CMLogInfo("mapper file changed: %s", mf->fpath);
 			// mf->fpath will be freed while processing. so need to backup.
 			char *fpath = CMStrdup(mf->fpath);
 			CMDBM_DatabaseAddMapper((CMDBM_Database*)idb, fpath);
 			CMFree(fpath);
 		}
-		CMUTIL_CALL(idb->rwlock, WriteUnlock);
+		CMCall(idb->rwlock, WriteUnlock);
 	}
 
 	// remove existing mapper
-	if (CMUTIL_CALL(toberem, GetSize) > 0) {
-		CMUTIL_CALL(idb->rwlock, WriteLock);
-		while (CMUTIL_CALL(toberem, GetSize) > 0) {
+	if (CMCall(toberem, GetSize) > 0) {
+		CMCall(idb->rwlock, WriteLock);
+		while (CMCall(toberem, GetSize) > 0) {
 			CMDBM_MapperFile *mf =
-					(CMDBM_MapperFile*)CMUTIL_CALL(toberem, RemoveAt, 0);
+					(CMDBM_MapperFile*)CMCall(toberem, RemoveAt, 0);
 			CMLogInfo("mapper file removed: %s", mf->fpath);
 			CMDBM_DatabaseRemoveFile(idb, mf->fpath);
 		}
-		CMUTIL_CALL(idb->rwlock, WriteUnlock);
+		CMCall(idb->rwlock, WriteUnlock);
 	}
 
-	iter = CMUTIL_CALL(idb->mfsets, Iterator);
-	while (CMUTIL_CALL(iter, HasNext)) {
-		int i, j;
+	iter = CMCall(idb->mfsets, Iterator);
+	while (CMCall(iter, HasNext)) {
+        uint i, j;
 		CMDBM_MapperFileSet *mset =
-				(CMDBM_MapperFileSet*)CMUTIL_CALL(iter, Next);
+				(CMDBM_MapperFileSet*)CMCall(iter, Next);
 		CMUTIL_File *dir = CMUTIL_FileCreate(mset->dpath);
 		CMUTIL_FileList *flist =
-				CMUTIL_CALL(dir, Find, mset->fpattern, mset->recursive);
-		CMUTIL_Bool ischanged = CMUTIL_False;
+				CMCall(dir, Find, mset->fpattern, mset->recursive);
+		CMUTIL_Bool ischanged = CMFalse;
 
 		// compare file lists
-		for (i=0; !ischanged && i<CMUTIL_CALL(flist, Count); i++) {
-			CMUTIL_File *f = CMUTIL_CALL(flist, GetAt, i);
-			for (j=0; j<CMUTIL_CALL(mset->mfileset, GetSize); j++) {
+		for (i=0; !ischanged && i<CMCall(flist, Count); i++) {
+			CMUTIL_File *f = CMCall(flist, GetAt, i);
+			for (j=0; j<CMCall(mset->mfileset, GetSize); j++) {
 				CMDBM_MapperFile *mf = (CMDBM_MapperFile*)
-						CMUTIL_CALL(mset->mfileset, GetAt, j);
+						CMCall(mset->mfileset, GetAt, j);
 				CMLogTrace("comparing %s,%s",
-						   CMUTIL_CALL(f, GetFullPath), mf->fpath);
-				if (strcmp(CMUTIL_CALL(f, GetFullPath), mf->fpath) == 0) {
-					if (CMUTIL_CALL(f, ModifiedTime) != mf->lastupdt)
-						ischanged = CMUTIL_True;
+						   CMCall(f, GetFullPath), mf->fpath);
+				if (strcmp(CMCall(f, GetFullPath), mf->fpath) == 0) {
+					if (CMCall(f, ModifiedTime) != mf->lastupdt)
+						ischanged = CMTrue;
 					break;
 				}
 			}
 		}
 
 		if (ischanged)
-			CMUTIL_CALL(toberep, Add, mset);
-		CMUTIL_CALL(flist, Destroy);
-		CMUTIL_CALL(dir, Destroy);
+			CMCall(toberep, Add, mset);
+		CMCall(flist, Destroy);
+		CMCall(dir, Destroy);
 	}
-	CMUTIL_CALL(iter, Destroy);
+	CMCall(iter, Destroy);
 
 	// replace existing mapper file set
-	if (CMUTIL_CALL(toberep, GetSize) > 0) {
-		while (CMUTIL_CALL(toberep, GetSize) > 0) {
-			CMDBM_MapperFileSet *mset = CMUTIL_CALL(toberep, RemoveAt, 0);
+	if (CMCall(toberep, GetSize) > 0) {
+		while (CMCall(toberep, GetSize) > 0) {
+			CMDBM_MapperFileSet *mset = CMCall(toberep, RemoveAt, 0);
 			CMDBM_MapperFileSet *newset = NULL;
 			CMLogInfo("mapper set(%s/%s) changed. reloading...",
 					  mset->dpath, mset->fpattern);
@@ -383,17 +386,17 @@ CMDBM_STATIC void CMDBM_DatabaseMapperReloader(void *data)
 			if (newset) {
 				char buf[1024];
 				sprintf(buf, "%s;%s", mset->dpath, mset->fpattern);
-				CMUTIL_CALL(idb->rwlock, WriteLock);
+				CMCall(idb->rwlock, WriteLock);
 				CMDBM_DatabaseRemoveMapperSet((CMDBM_Database*)idb, buf);
-				CMUTIL_CALL(idb->mfsets, Put, buf, mset);
-				CMUTIL_CALL(idb->queries, PutAll, mset->queries);
-				CMUTIL_CALL(idb->rwlock, WriteUnlock);
+				CMCall(idb->mfsets, Put, buf, mset);
+				CMCall(idb->queries, PutAll, mset->queries);
+				CMCall(idb->rwlock, WriteUnlock);
 			}
 		}
 	}
 
-	CMUTIL_CALL(toberep, Destroy);
-	CMUTIL_CALL(toberem, Destroy);
+	CMCall(toberep, Destroy);
+	CMCall(toberem, Destroy);
 }
 
 CMDBM_STATIC CMUTIL_Bool CMDBM_DatabaseInitialize(
@@ -409,7 +412,7 @@ CMDBM_STATIC CMUTIL_Bool CMDBM_DatabaseInitialize(
 				CMDBM_DatabasePoolCreateProc,
 				CMDBM_DatabasePoolDestroyProc,
 				CMDBM_DatabasePoolTestProc,
-				30, CMUTIL_True, idb, timer);
+				30, CMTrue, idb, timer);
 
 	// do initial mapper load
 	CMDBM_DatabaseMapperReloader(idb);
@@ -418,9 +421,9 @@ CMDBM_STATIC CMUTIL_Bool CMDBM_DatabaseInitialize(
 	if (idb->minterval == 0)
 		idb->minterval = 30;
 	interval = idb->minterval * 1000;
-	idb->monitor = CMUTIL_CALL(timer, ScheduleDelayRepeat, interval, interval,
+	idb->monitor = CMCall(timer, ScheduleDelayRepeat, interval, interval,
 							   CMDBM_DatabaseMapperReloader, idb);
-	return idb->connpool == NULL? CMUTIL_False:CMUTIL_True;
+	return idb->connpool == NULL? CMFalse:CMTrue;
 }
 
 CMDBM_STATIC CMUTIL_JsonObject *CMDBM_DatabaseGetParams(
@@ -455,7 +458,7 @@ CMDBM_STATIC CMUTIL_XmlNode *CMDBM_DatabaseGetQuery(
 		CMDBM_DatabaseEx *db, const char *id)
 {
 	CMDBM_Database_Internal *idb = (CMDBM_Database_Internal*)db;
-	CMUTIL_XmlNode *res = (CMUTIL_XmlNode*)CMUTIL_CALL(idb->queries, Get, id);
+	CMUTIL_XmlNode *res = (CMUTIL_XmlNode*)CMCall(idb->queries, Get, id);
 	if (res == NULL)
 		CMLogErrorS("datasource '%s' has no query with id '%s'.",
 					idb->sourceid, id);
@@ -466,7 +469,7 @@ CMDBM_STATIC CMDBM_Connection *CMDBM_DatabaseGetConnection(
 		CMDBM_DatabaseEx *db)
 {
 	CMDBM_Database_Internal *idb = (CMDBM_Database_Internal*)db;
-	CMDBM_Connection *res = CMUTIL_CALL(idb->connpool, CheckOut, 5000);
+	CMDBM_Connection *res = CMCall(idb->connpool, CheckOut, 5000);
 	if (res == NULL) {
 		CMLogError("cannot get connection from source '%s' in 5 seconds",
 				   idb->sourceid);
@@ -478,7 +481,7 @@ CMDBM_STATIC void CMDBM_DatabaseReleaseConnection(
 		CMDBM_DatabaseEx *db, CMDBM_Connection *conn)
 {
 	CMDBM_Database_Internal *idb = (CMDBM_Database_Internal*)db;
-	CMUTIL_CALL(idb->connpool, Release, conn);
+	CMCall(idb->connpool, Release, conn);
 }
 
 CMDBM_STATIC void CMDBM_DatabaseDestroy(
@@ -489,17 +492,17 @@ CMDBM_STATIC void CMDBM_DatabaseDestroy(
 		if (idb->sourceid) CMFree(idb->sourceid);
 		if (idb->dbcs) CMFree(idb->dbcs);
 		if (idb->pgcs) CMFree(idb->pgcs);
-		if (idb->queries) CMUTIL_CALL(idb->queries, Destroy);
-		if (idb->mfiles) CMUTIL_CALL(idb->mfiles, Destroy);
-		if (idb->mfsets) CMUTIL_CALL(idb->mfsets, Destroy);
-		if (idb->monitor) CMUTIL_CALL(idb->monitor, Cancel);
-		if (idb->connpool) CMUTIL_CALL(idb->connpool, Destroy);
+		if (idb->queries) CMCall(idb->queries, Destroy);
+		if (idb->mfiles) CMCall(idb->mfiles, Destroy);
+		if (idb->mfsets) CMCall(idb->mfsets, Destroy);
+		if (idb->monitor) CMCall(idb->monitor, Cancel);
+		if (idb->connpool) CMCall(idb->connpool, Destroy);
 		if (idb->params) CMUTIL_JsonDestroy(idb->params);
-		if (idb->testqry) CMUTIL_CALL(idb->testqry, Destroy);
+		if (idb->testqry) CMCall(idb->testqry, Destroy);
 		if (idb->poolconf) CMDBM_PoolConfigDestroy(idb->poolconf);
 		if (idb->initres) idb->modif->CleanUp(idb->initres);
 		if (idb->modif) CMFree(idb->modif);
-		if (idb->rwlock) CMUTIL_CALL(idb->rwlock, Destroy);
+		if (idb->rwlock) CMCall(idb->rwlock, Destroy);
 		CMFree(idb);
 	}
 }
@@ -507,13 +510,13 @@ CMDBM_STATIC void CMDBM_DatabaseDestroy(
 CMDBM_STATIC void CMDBM_DatabaseLockQueryItem(CMDBM_DatabaseEx *db)
 {
 	CMDBM_Database_Internal *idb = (CMDBM_Database_Internal*)db;
-	CMUTIL_CALL(idb->rwlock, ReadLock);
+	CMCall(idb->rwlock, ReadLock);
 }
 
 CMDBM_STATIC void CMDBM_DatabaseUnlockQueryItem(CMDBM_DatabaseEx *db)
 {
 	CMDBM_Database_Internal *idb = (CMDBM_Database_Internal*)db;
-	CMUTIL_CALL(idb->rwlock, ReadUnlock);
+	CMCall(idb->rwlock, ReadUnlock);
 }
 
 static CMDBM_DatabaseEx g_cmdbm_databse = {
@@ -548,34 +551,18 @@ CMDBM_Database *CMDBM_DatabaseCreateCustom(
 	res->sourceid = CMStrdup(sourceid);
 	res->dbcs = CMStrdup(dbcharset);
     res->mfiles = CMUTIL_MapCreateEx(
-                64, CMUTIL_False, CMDBM_MapperFileDestroy);
+                64, CMFalse, CMDBM_MapperFileDestroy);
     res->mfsets = CMUTIL_MapCreateEx(
-                64, CMUTIL_False, CMDBM_MapperFileSetDestroy);
+                64, CMFalse, CMDBM_MapperFileSetDestroy);
 	res->modif = CMAlloc(sizeof(CMDBM_ModuleInterface));
 	memcpy(res->modif, modif, sizeof(CMDBM_ModuleInterface));
 	res->queries = CMUTIL_MapCreate();
 	res->poolconf = CMDBM_PoolConfigClone(poolconf);
-	res->params = (CMUTIL_JsonObject*)CMUTIL_CALL(&(params->parent), Clone);
+	res->params = (CMUTIL_JsonObject*)CMCall(&(params->parent), Clone);
 	res->rwlock = CMUTIL_RWLockCreate();
 	res->testqry = CMUTIL_StringCreateEx(64, modif->GetTestQuery());
 	return (CMDBM_Database*)res;
 }
-
-#if defined(CMDBM_ODBC)
-extern CMDBM_ModuleInterface g_cmdbm_odbc_interface;
-#endif
-#if defined(CMDBM_ORACLE)
-extern CMDBM_ModuleInterface g_cmdbm_oracle_interface;
-#endif
-#if defined(CMDBM_MYSQL)
-extern CMDBM_ModuleInterface g_cmdbm_mysql_interface;
-#endif
-#if defined(CMDBM_SQLITE)
-extern CMDBM_ModuleInterface g_cmdbm_sqlite_interface;
-#endif
-#if defined(CMDBM_PGSQL)
-extern CMDBM_ModuleInterface g_cmdbm_pgsql_interface;
-#endif
 
 static CMDBM_ModuleInterface *g_cmdbm_moduleifs[] = {
 #if defined(CMDBM_ODBC)
