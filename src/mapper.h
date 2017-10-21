@@ -1,5 +1,5 @@
-#ifndef __MAPPER_H__
-#define __MAPPER_H__
+#ifndef MAPPER_H__
+#define MAPPER_H__
 
 #include "functions.h"
 
@@ -68,5 +68,5 @@ typedef struct CMDBM_CompItem {
 
 CMDBM_NodeType CMDBM_MapperGetNodeType(CMUTIL_XmlNode *node);
 
-#endif // __MAPPER_H__
+#endif // MAPPER_H__
 

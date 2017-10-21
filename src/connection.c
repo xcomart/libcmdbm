@@ -19,7 +19,7 @@ typedef struct CMDBM_Cursor_Internal {
 
 CMDBM_STATIC char *CMDBM_ConnectionGetBindString(
 		CMDBM_Connection *conn,
-        uint index,
+        uint32_t index,
 		char *buffer)
 {
 	CMDBM_Connection_Internal *iconn = (CMDBM_Connection_Internal*)conn;

@@ -1,5 +1,5 @@
-#ifndef __FUNCTIONS_H__
-#define __FUNCTIONS_H__
+#ifndef FUNCTIONS_H__
+#define FUNCTIONS_H__
 
 #define CMDBM_EXPORT
 
@@ -25,8 +25,8 @@
 #define CMDBM_SQLDELIMS		" \r\r\n\t{}[]+%\'./():,*\"=<>@;-|!~^"
 
 
-void CMDBM_MapperInit();
-void CMDBM_MapperClear();
+void CMDBM_MapperInit(void);
+void CMDBM_MapperClear(void);
 
 
 CMUTIL_Bool CMDBM_MapperRebuildItem(
@@ -49,5 +49,5 @@ CMDBM_Session *CMDBM_SessionCreate(
 
 CMDBM_DBType CMDBM_DatabaseType(const char *dbtype);
 
-#endif // __FUNCTIONS_H__
+#endif // FUNCTIONS_H__
 

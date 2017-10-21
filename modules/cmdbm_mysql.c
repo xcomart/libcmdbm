@@ -56,7 +56,7 @@ CMDBM_STATIC void CMDBM_MySQL_CleanUp(
 }
 
 CMDBM_STATIC char *CMDBM_MySQL_GetBindString(
-		void *initres, int index, char *buffer)
+        void *initres, uint32_t index, char *buffer)
 {
 	CMUTIL_UNUSED(initres, index);
 	strcpy(buffer, "?");
@@ -206,7 +206,7 @@ CMDBM_STATIC void CMDBM_MySQL_BindString(
     if (out) CMCall(sval, AddNString, buf, 4096);
 	bind->buffer_type = MYSQL_TYPE_VARCHAR;
     bind->buffer = (void*)CMCall(sval, GetCString);
-    bind->buffer_length = (ulong)CMCall(sval, GetSize);
+    bind->buffer_length = (uint64_t)CMCall(sval, GetSize);
 	CMUTIL_UNUSED(bufarr);
 }
 
@@ -271,7 +271,7 @@ CMDBM_STATIC MYSQL_STMT *CMDBM_MySQL_ExecuteBase(
 		CMDBM_MySQLSession *sess, CMUTIL_String *query,
 		CMUTIL_JsonArray *binds, CMUTIL_JsonObject *outs)
 {
-    uint i;
+    uint32_t i;
     size_t bsize = 0;
     CMUTIL_Bool succ = CMFalse;
 	MYSQL_STMT *stmt = mysql_stmt_init(sess->conn);
@@ -282,8 +282,8 @@ CMDBM_STATIC MYSQL_STMT *CMDBM_MySQL_ExecuteBase(
 		array = CMUTIL_ArrayCreateEx(
                     CMCall(binds, GetSize), NULL, CMFree);
         bsize = CMCall(binds, GetSize);
-        buffers = CMAlloc(sizeof(MYSQL_BIND) * (ulong)bsize);
-        memset(buffers, 0x0, sizeof(MYSQL_BIND) * (ulong)bsize);
+        buffers = CMAlloc(sizeof(MYSQL_BIND) * (uint64_t)bsize);
+        memset(buffers, 0x0, sizeof(MYSQL_BIND) * (uint64_t)bsize);
 	}
 
     if (mysql_stmt_prepare(stmt, CMCall(query, GetCString),
@@ -384,7 +384,7 @@ CMDBM_STATIC void CMDBM_MySQL_ResultAssignString(
         bind->buffer_length = finfo->length*2;
         memset(buffer, 0x0, finfo->length*2+1);
         ival = mysql_stmt_fetch_column(
-                    stmt, finfo->bind, (uint)finfo->index, 0);
+                    stmt, finfo->bind, (uint32_t)finfo->index, 0);
         if (ival != 0) {
             MYSQL_LOGERROR(finfo->sess, "mysql_stmt_fetch_column() failed.");
         } else {
@@ -434,8 +434,8 @@ CMDBM_STATIC MYSQL_STMT *CMDBM_MySQL_SelectBase(
 
         fieldcnt = (int)mysql_field_count(sess->conn);
 		ofields = mysql_fetch_fields(*meta);
-        *resbuf = CMAlloc(sizeof(MYSQL_BIND) * (ulong)fieldcnt);
-        memset(*resbuf, 0x0, sizeof(MYSQL_BIND) * (ulong)fieldcnt);
+        *resbuf = CMAlloc(sizeof(MYSQL_BIND) * (uint64_t)fieldcnt);
+        memset(*resbuf, 0x0, sizeof(MYSQL_BIND) * (uint64_t)fieldcnt);
 		for (i=0; i<fieldcnt; i++) {
 			MYSQL_FIELD *f = &ofields[i];
 			MYSQL_BIND *b = &((*resbuf)[i]);
@@ -460,7 +460,6 @@ CMDBM_STATIC MYSQL_STMT *CMDBM_MySQL_SelectBase(
 			case MYSQL_TYPE_LONGLONG:
 			case MYSQL_TYPE_INT24:
 			case MYSQL_TYPE_ENUM:
-			case MYSQL_TYPE_TIMESTAMP2:
 				// treat as long
 				finfo->fassign = CMDBM_MySQL_ResultAssignLong;
 				b->buffer_type = MYSQL_TYPE_LONGLONG;
@@ -513,7 +512,7 @@ FAILEDPOINT:
 CMDBM_STATIC void CMUTIL_MySQL_RowSetFields(
 		CMUTIL_Array *finfos, MYSQL_STMT *stmt, CMUTIL_JsonObject *row)
 {
-    uint i;
+    uint32_t i;
     size_t numfields = CMCall(finfos, GetSize);
 	for (i=0; i<numfields; i++) {
 		CMDBM_MySQL_FieldInfo *finfo =

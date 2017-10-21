@@ -49,7 +49,7 @@ CMDBM_STATIC void CMDBM_ContextDBLibDestroyer(void *data)
 
 CMDBM_STATIC void CMDBM_ContextConfigClean(CMUTIL_Json *json)
 {
-    uint i;
+    uint32_t i;
 	switch (CMCall(json, GetType)) {
 	case CMUTIL_JsonTypeObject: {
 		CMUTIL_JsonObject *jobj = (CMUTIL_JsonObject*)json;
@@ -124,7 +124,7 @@ CMDBM_STATIC CMUTIL_Bool CMDBM_ContextParsePoolConfig(
 CMDBM_STATIC CMUTIL_Bool CMDBM_ContextParseMappers(
 		CMDBM_Database *db, CMUTIL_JsonArray *mappers)
 {
-    uint i;
+    uint32_t i;
 	CMUTIL_Bool res = CMTrue;
 	for (i=0; res && i<CMCall(mappers, GetSize); i++) {
 		CMUTIL_JsonObject *mcfg =
@@ -171,7 +171,7 @@ CMDBM_STATIC CMUTIL_Bool CMDBM_ContextParseDatabase(
 	CMDBM_DBType dbtype;
 	CMUTIL_JsonObject *param = NULL;
 	CMUTIL_StringArray *keys = NULL;
-    uint i;
+    uint32_t i;
 
 	if (id == NULL) {
 		CMLogErrorS("There is no 'id' attribute in '%s' type datasource.");
@@ -275,7 +275,7 @@ CMDBM_STATIC CMUTIL_Bool CMDBM_ContextParseConfig(
 		CMDBM_Context *context,
 		CMUTIL_Json *config)
 {
-    uint i;
+    uint32_t i;
 	CMUTIL_Bool res = CMFalse;
 	CMUTIL_Json *item = NULL;
 	CMUTIL_JsonArray *jarr = NULL;
