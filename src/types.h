@@ -1,5 +1,5 @@
-#ifndef __TYPES_H__
-#define __TYPES_H__
+#ifndef TYPES_H__
+#define TYPES_H__
 
 #include "libcmdbm.h"
 
@@ -15,7 +15,7 @@ typedef struct CMDBM_Connection CMDBM_Connection;
 struct CMDBM_Connection {
 	char *(*GetBindString)(
 			CMDBM_Connection *conn,
-            uint index,
+            uint32_t index,
 			char *buffer);
 	CMUTIL_XmlNode *(*GetQuery)(
 			CMDBM_Connection *conn,
@@ -115,5 +115,5 @@ extern CMDBM_ModuleInterface g_cmdbm_sqlite_interface;
 extern CMDBM_ModuleInterface g_cmdbm_pgsql_interface;
 #endif
 
-#endif // __TYPES_H__
+#endif // TYPES_H__
 

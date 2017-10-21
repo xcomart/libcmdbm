@@ -1,5 +1,5 @@
-#ifndef __LIBCMDBM_H__
-#define __LIBCMDBM_H__
+#ifndef LIBCMDBM_H__
+#define LIBCMDBM_H__
 
 #ifdef __cplusplus
 extern "C" {
@@ -19,8 +19,8 @@ extern "C" {
 # endif
 #endif
 
-CMDBM_API void CMDBM_Init();
-CMDBM_API void CMDBM_Clear();
+CMDBM_API void CMDBM_Init(void);
+CMDBM_API void CMDBM_Clear(void);
 
 typedef struct CMDBM_ModuleInterface CMDBM_ModuleInterface;
 struct CMDBM_ModuleInterface {
@@ -32,7 +32,7 @@ struct CMDBM_ModuleInterface {
 			void *initres);
 	char *(*GetBindString)(
 			void *initres,
-			int index,
+            uint32_t index,
 			char *buffer);
 	const char *(*GetTestQuery)();
 	void *(*OpenConnection)(
@@ -90,11 +90,11 @@ struct CMDBM_ModuleInterface {
 };
 
 typedef struct CMDBM_PoolConfig {
-	int pingterm;
+    uint32_t pingterm;
 	CMUTIL_Bool pingtest;
 	CMUTIL_Bool testonborrow;
-	int initcnt;
-	int maxcnt;
+    uint32_t initcnt;
+    uint32_t maxcnt;
 	char *testsql;
 } CMDBM_PoolConfig;
 
@@ -174,7 +174,7 @@ struct CMDBM_Session {
 			void				*udata,
 			CMUTIL_Bool			(*rowcb)(
 				CMUTIL_JsonObject	*row,
-				int					rownum,
+                uint32_t			rownum,
 				void				*udata));
 	CMUTIL_Bool (*Commit)(
 			CMDBM_Session		*session);
@@ -204,5 +204,5 @@ CMDBM_API CMDBM_Context *CMDBM_ContextCreate(
 }
 #endif
 
-#endif // __LIBCMDBM_H__
+#endif // LIBCMDBM_H__
 

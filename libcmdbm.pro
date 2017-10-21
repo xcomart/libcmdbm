@@ -4,7 +4,7 @@ CONFIG -= qt
 
 DEFINES += CMDBM_LIBRARY
 CONFIG += CMDBM_MYSQL
-CONFIG += CMDBM_ORACLE
+#CONFIG += CMDBM_ORACLE
 CONFIG += CMDBM_ODBC
 
 !win32-msvc* {
@@ -36,12 +36,19 @@ contains(CONFIG, CMDBM_ORACLE) {
 
 contains(CONFIG, CMDBM_MYSQL) {
     DEFINES += CMDBM_MYSQL
-    PKGCONFIG += mysqlclient
+    !win32-msvc* {
+        PKGCONFIG += mysqlclient
+#        PKGCONFIG += mariadbclient
+    }
 }
 
 contains(CONFIG, CMDBM_ODBC) {
     DEFINES += CMDBM_ODBC
-    LIBS += -lodbc
+    win32 {
+        LIBS += -lodbc32
+    } else {
+        LIBS += -lodbc
+    }
 }
 
 DESTDIR = $$BUILD_DIR/$$LIB_DIR
