@@ -94,7 +94,7 @@ FAILED:
 }
 
 CMDBM_STATIC char *CMDBM_ODBC_GetBindString(
-        void *initres, int index, char *buffer)
+        void *initres, uint index, char *buffer)
 {
     CMUTIL_UNUSED(initres, index);
     strcpy(buffer, "?");

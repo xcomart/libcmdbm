@@ -630,7 +630,7 @@ CMDBM_STATIC CMUTIL_Bool CMDBM_MapperRebuildText(
 	// process text node
 	CMUTIL_XmlNode *child = NULL;
 	char buf[1024];
-    char *p, *q;
+    const char *p, *q;
 
 	CMDBM_MapperItemProc(queries, node, CMDBM_NTSqlGroup);
 
@@ -638,7 +638,7 @@ CMDBM_STATIC CMUTIL_Bool CMDBM_MapperRebuildText(
 	p = strstr(r, "#{");
 	q = strstr(r, "${");
 	while (CMTrue) {
-		char *s = NULL, *t = NULL;
+        const char *s = NULL, *t = NULL;
 		CMDBM_NodeType ntype;
 
 		buf[0] = 0x0;
@@ -694,7 +694,7 @@ CMDBM_STATIC CMUTIL_Bool CMDBM_MapperRebuildText(
 			q = strstr(r, "${");
 	}
 
-	p = (char*)CMCall(node, GetName);
+    p = CMCall(node, GetName);
 	child = CMUTIL_XmlNodeCreateWithLen(
                 CMUTIL_XmlNodeText, r, strlen(p)-(ulong)(r-p));
 	CMDBM_MapperItemProc(queries, child, CMDBM_NTSqlText);

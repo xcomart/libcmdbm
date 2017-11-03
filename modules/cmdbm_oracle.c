@@ -48,12 +48,12 @@ typedef struct CMDBM_OracleSession {
 						 errbuf, (ub4) sizeof(errbuf), OCI_HTYPE_ERROR);\
 		if ((c)->ctx->needconv) {\
 			buf = CMUTIL_StringCreateEx(64, (char*)errbuf);\
-			CMUTIL_CALL((c)->ctx->convmtx, Lock);\
-			out = CMUTIL_CALL((c)->ctx->conv, Forward, buf);\
-			CMUTIL_CALL((c)->ctx->convmtx, Unlock);\
+            CMCall((c)->ctx->convmtx, Lock);\
+            out = CMCall((c)->ctx->conv, Forward, buf);\
+            CMCall((c)->ctx->convmtx, Unlock);\
 			CMLogInfo("OCI success with information: ORA-%05d > %s",\
-					  errcode, CMUTIL_CALL(out, GetCString));\
-			CMUTIL_CALL(buf, Destroy); CMUTIL_CALL(out, Destroy);\
+                      errcode, CMCall(out, GetCString));\
+            CMCall(buf, Destroy); CMCall(out, Destroy);\
 		} else {\
 			CMLogInfo("OCI success with information: ORA-%05d > %s",\
 					  errcode, errbuf);\
@@ -65,12 +65,12 @@ typedef struct CMDBM_OracleSession {
 						 errbuf, (ub4) sizeof(errbuf), OCI_HTYPE_ERROR);\
 		if (c->ctx->needconv) {\
 			buf = CMUTIL_StringCreateEx(64, (char*)errbuf);\
-			CMUTIL_CALL(c->ctx->convmtx, Lock);\
-			out = CMUTIL_CALL(c->ctx->conv, Forward, buf);\
-			CMUTIL_CALL(c->ctx->convmtx, Unlock);\
+            CMCall(c->ctx->convmtx, Lock);\
+            out = CMCall(c->ctx->conv, Forward, buf);\
+            CMCall(c->ctx->convmtx, Unlock);\
 			CMLogError("%s failed. OCI error: ORA-%05d > %s",\
-					   #a, errcode, CMUTIL_CALL(out, GetCString));\
-			CMUTIL_CALL(buf, Destroy); CMUTIL_CALL(out, Destroy);\
+                       #a, errcode, CMCall(out, GetCString));\
+            CMCall(buf, Destroy); CMCall(out, Destroy);\
 		} else {\
 			CMLogError("%s failed. OCI error: ORA-%05d > %s",\
 					   #a, errcode, errbuf);\
@@ -122,17 +122,17 @@ CMDBM_STATIC void CMDBM_Oracle_CleanUp(void *initres)
 	if (initres) {
 		CMDBM_OracleCtx *ctx = (CMDBM_OracleCtx*)initres;
 		OCIHandleFree(ctx->envhp, OCI_HTYPE_ENV);
-		if (ctx->convmtx) CMUTIL_CALL(ctx->convmtx, Destroy);
-		if (ctx->conv) CMUTIL_CALL(ctx->conv, Destroy);
+        if (ctx->convmtx) CMCall(ctx->convmtx, Destroy);
+        if (ctx->conv) CMCall(ctx->conv, Destroy);
 		CMFree(ctx);
 	}
 }
 
 CMDBM_STATIC char *CMDBM_Oracle_GetBindString(
-		void *initres, int index, char *buffer)
+        void *initres, uint index, char *buffer)
 {
 	CMUTIL_UNUSED(initres);
-	sprintf(buffer, ":%d", (index+1));
+    sprintf(buffer, ":%u", (index+1));
 	return buffer;
 }
 
@@ -167,11 +167,11 @@ CMDBM_STATIC void *CMDBM_Oracle_OpenConnection(
 {
 	CMUTIL_Bool succ = CMFalse;
 	CMUTIL_JsonValue *user =
-			(CMUTIL_JsonValue*)CMUTIL_CALL(params, GetString, "user");
+            (CMUTIL_JsonValue*)CMCall(params, GetString, "user");
 	CMUTIL_JsonValue *pass =
-			(CMUTIL_JsonValue*)CMUTIL_CALL(params, GetString, "password");
+            (CMUTIL_JsonValue*)CMCall(params, GetString, "password");
 	CMUTIL_JsonValue *tns  =
-			(CMUTIL_JsonValue*)CMUTIL_CALL(params, GetString, "tnsname");
+            (CMUTIL_JsonValue*)CMCall(params, GetString, "tnsname");
 	CMDBM_OracleSession *res = CMAlloc(sizeof(CMDBM_OracleSession));
 	CMDBM_OracleCtx *ctx = (CMDBM_OracleCtx*)initres;
 	const char *suser, *spass, *stns;
@@ -181,9 +181,9 @@ CMDBM_STATIC void *CMDBM_Oracle_OpenConnection(
 		CMLogError("Oracle connection requires 'tnsname', 'user', 'password'");
 		goto ENDPOINT;
 	}
-	suser = CMUTIL_CALL(user, GetCString);
-	spass = CMUTIL_CALL(pass, GetCString);
-	stns  = CMUTIL_CALL(tns , GetCString);
+    suser = CMCall(user, GetCString);
+    spass = CMCall(pass, GetCString);
+    stns  = CMCall(tns , GetCString);
 
 	memset(res, 0x0, sizeof(CMDBM_OracleSession));
 	res->envhp = ctx->envhp;
@@ -288,15 +288,15 @@ CMDBM_STATIC CMUTIL_Bool CMDBM_Oracle_BindLong(
 {
     int64_t *val = CMAlloc(sizeof(int64_t));
 	sb4 status;
-	*val = CMUTIL_CALL(jval, GetLong);
-	CMUTIL_CALL(bufarr, Add, val);
+    *val = CMCall(jval, GetLong);
+    CMCall(bufarr, Add, val);
 	if (out) {
 		CMDBM_OracleColumn *item = CMAlloc(sizeof(CMDBM_OracleColumn));
 		memset(item, 0x0, sizeof(sizeof(CMDBM_OracleColumn)));
 		item->typecd = CMUTIL_JsonValueLong;
 		item->index = pos;
 		item->buffer = val;
-		CMUTIL_CALL(outarr, Add, item);
+        CMCall(outarr, Add, item);
 		CMDBM_OracleCheck(conn, status, ENDPOINT, OCIBindByPos,
                           stmt, bind, conn->errhp, pos+1, val, sizeof(int64_t),
 						  SQLT_INT, &(item->indicator),0,0,0,0,OCI_DEFAULT);
@@ -318,15 +318,15 @@ CMDBM_STATIC CMUTIL_Bool CMDBM_Oracle_BindDouble(
 {
 	double *val = CMAlloc(sizeof(double));
 	sb4 status;
-	*val = CMUTIL_CALL(jval, GetDouble);
-	CMUTIL_CALL(bufarr, Add, val);
+    *val = CMCall(jval, GetDouble);
+    CMCall(bufarr, Add, val);
 	if (out) {
 		CMDBM_OracleColumn *item = CMAlloc(sizeof(CMDBM_OracleColumn));
 		memset(item, 0x0, sizeof(sizeof(CMDBM_OracleColumn)));
 		item->typecd = CMUTIL_JsonValueDouble;
 		item->index = pos;
 		item->buffer = val;
-		CMUTIL_CALL(outarr, Add, item);
+        CMCall(outarr, Add, item);
 		CMDBM_OracleCheck(conn, status, ENDPOINT, OCIBindByPos,
 						  stmt, bind, conn->errhp, pos+1, val, sizeof(double),
 						  SQLT_FLT, &(item->indicator),0,0,0,0,OCI_DEFAULT);
@@ -348,24 +348,24 @@ CMDBM_STATIC CMUTIL_Bool CMDBM_Oracle_BindString(
 {
 	char buf[4096] = {0,};
 	sb4 status;
-	CMUTIL_String *val = CMUTIL_CALL(jval, GetString);
+    CMUTIL_String *val = CMCall(jval, GetString);
 	if (out) {
 		CMDBM_OracleColumn *item = CMAlloc(sizeof(CMDBM_OracleColumn));
 		memset(item, 0x0, sizeof(sizeof(CMDBM_OracleColumn)));
 		item->typecd = CMUTIL_JsonValueString;
 		item->index = pos;
-		CMUTIL_CALL(val, AddNString, buf, 4096);
-		CMUTIL_CALL(outarr, Add, item);
+        CMCall(val, AddNString, buf, 4096);
+        CMCall(outarr, Add, item);
 		CMDBM_OracleCheck(conn, status, ENDPOINT, OCIBindByPos,
 						  stmt, bind, conn->errhp, pos+1,
-						  (void*)CMUTIL_CALL(val, GetCString),
-                          (int)CMUTIL_CALL(val, GetSize),
+                          (void*)CMCall(val, GetCString),
+                          (int)CMCall(val, GetSize),
 						  SQLT_STR, &(item->indicator),0,0,0,0,OCI_DEFAULT);
 	} else {
 		CMDBM_OracleCheck(conn, status, ENDPOINT, OCIBindByPos,
 						  stmt, bind, conn->errhp, pos+1,
-						  (void*)CMUTIL_CALL(val, GetCString),
-                          (int)CMUTIL_CALL(val, GetSize),
+                          (void*)CMCall(val, GetCString),
+                          (int)CMCall(val, GetSize),
 						  SQLT_STR, 0,0,0,0,0,OCI_DEFAULT);
 	}
 	return CMTrue;
@@ -382,15 +382,15 @@ CMDBM_STATIC CMUTIL_Bool CMDBM_Oracle_BindBoolean(
 {
 	int *val = CMAlloc(sizeof(int));
 	sb4 status;
-	*val = CMUTIL_CALL(jval, GetBoolean);
-	CMUTIL_CALL(bufarr, Add, val);
+    *val = CMCall(jval, GetBoolean);
+    CMCall(bufarr, Add, val);
 	if (out) {
 		CMDBM_OracleColumn *item = CMAlloc(sizeof(CMDBM_OracleColumn));
 		memset(item, 0x0, sizeof(sizeof(CMDBM_OracleColumn)));
 		item->typecd = CMUTIL_JsonValueBoolean;
 		item->index = pos;
 		item->buffer = val;
-		CMUTIL_CALL(outarr, Add, item);
+        CMCall(outarr, Add, item);
 		CMDBM_OracleCheck(conn, status, ENDPOINT, OCIBindByPos,
 						  stmt, bind, conn->errhp, pos+1, val, sizeof(int),
 						  SQLT_INT, &(item->indicator),0,0,0,0,OCI_DEFAULT);
@@ -477,24 +477,24 @@ CMDBM_STATIC void CMDBM_Oracle_SetOutValue(
 		CMDBM_OracleColumn *col, CMUTIL_JsonValue *jval)
 {
 	if (col->indicator == -1) {
-		CMUTIL_CALL(jval, SetNull);
+        CMCall(jval, SetNull);
 	} else {
         size_t len;
 		CMUTIL_String *temp;
 		switch (col->typecd) {
 		case CMUTIL_JsonValueBoolean:
-			CMUTIL_CALL(jval, SetBoolean, (CMUTIL_Bool)*((int*)col->buffer));
+            CMCall(jval, SetBoolean, (CMUTIL_Bool)*((int*)col->buffer));
 			break;
 		case CMUTIL_JsonValueLong:
-            CMUTIL_CALL(jval, SetLong, (int64_t)*((int64_t*)col->buffer));
+            CMCall(jval, SetLong, (int64_t)*((int64_t*)col->buffer));
 			break;
 		case CMUTIL_JsonValueDouble:
-			CMUTIL_CALL(jval, SetDouble, (double)*((double*)col->buffer));
+            CMCall(jval, SetDouble, (double)*((double*)col->buffer));
 			break;
 		case CMUTIL_JsonValueString:
-			temp = CMUTIL_CALL(jval, GetString);
-			len = strlen(CMUTIL_CALL(temp, GetCString));
-			CMUTIL_CALL(temp, CutTailOff, len);
+            temp = CMCall(jval, GetString);
+            len = strlen(CMCall(temp, GetCString));
+            CMCall(temp, CutTailOff, len);
 			break;
 		}
 	}
@@ -511,31 +511,31 @@ CMDBM_STATIC OCIStmt *CMDBM_Oracle_ExecuteBase(
 	OCIStmt *stmt = NULL;
 	OCIBind **buffers = NULL;
 	CMUTIL_Array *array = CMUTIL_ArrayCreateEx(
-				CMUTIL_CALL(binds, GetSize), NULL, CMFree);
+                CMCall(binds, GetSize), NULL, CMFree);
 	CMUTIL_Array *outarr = CMUTIL_ArrayCreateEx(
-				CMUTIL_CALL(binds, GetSize), NULL, CMFree);
+                CMCall(binds, GetSize), NULL, CMFree);
 
 	CMDBM_OracleCheck(conn, status, FAILEDPOINT, OCIHandleAlloc, conn->envhp,
 					  (void**)&stmt, OCI_HTYPE_STMT, 0, NULL);
 	CMDBM_OracleCheck(conn, status, FAILEDPOINT, OCIStmtPrepare,
 					  stmt, conn->errhp,
-					  (text*)CMUTIL_CALL(query, GetCString),
-					  (ub4)CMUTIL_CALL(query, GetSize),
+                      (text*)CMCall(query, GetCString),
+                      (ub4)CMCall(query, GetSize),
 					  OCI_NTV_SYNTAX, OCI_DEFAULT);
 
-	bsize = CMUTIL_CALL(binds, GetSize);
+    bsize = CMCall(binds, GetSize);
 	buffers = CMAlloc(sizeof(OCIBind*) * bsize);
 	memset(buffers, 0x0, sizeof(OCIBind*) * bsize);
 	for (i=0; i<bsize; i++) {
 		char ibuf[20];
-		CMUTIL_Json *json = CMUTIL_CALL(binds, Get, i);
+        CMUTIL_Json *json = CMCall(binds, Get, i);
 		sprintf(ibuf, "%d", i);
-		if (CMUTIL_CALL(json, GetType) == CMUTIL_JsonTypeValue) {
+        if (CMCall(json, GetType) == CMUTIL_JsonTypeValue) {
 			CMUTIL_JsonValue *jval = (CMUTIL_JsonValue*)json;
-			CMUTIL_Json *out = CMUTIL_CALL(outs, Get, ibuf);
+            CMUTIL_Json *out = CMCall(outs, Get, ibuf);
 			// type of json value
 			succ = g_cmdbm_oracle_bindprocs[
-					CMUTIL_CALL(jval, GetValueType)](
+                    CMCall(jval, GetValueType)](
 						conn, &buffers[i], stmt, jval, i, array, out, outarr);
 			if (!succ) {
 				goto FAILEDPOINT;
@@ -552,14 +552,14 @@ CMDBM_STATIC OCIStmt *CMDBM_Oracle_ExecuteBase(
 
 	// retreive out variables
 	{
-		CMUTIL_StringArray *keys = CMUTIL_CALL(outs, GetKeys);
-		for (i=0; i<CMUTIL_CALL(keys, GetSize); i++) {
-			const char *cidx = CMUTIL_CALL(keys, GetCString, i);
+        CMUTIL_StringArray *keys = CMCall(outs, GetKeys);
+        for (i=0; i<CMCall(keys, GetSize); i++) {
+            const char *cidx = CMCall(keys, GetCString, i);
 			CMUTIL_JsonValue *jval =
-					(CMUTIL_JsonValue*)CMUTIL_CALL(outs, Get, cidx);
+                    (CMUTIL_JsonValue*)CMCall(outs, Get, cidx);
             uint idx = (uint)atoi(cidx);
 			CMDBM_OracleColumn *col =
-					(CMDBM_OracleColumn*)CMUTIL_CALL(outarr, GetAt, idx);
+                    (CMDBM_OracleColumn*)CMCall(outarr, GetAt, idx);
 			CMDBM_Oracle_SetOutValue(col, jval);
 		}
 	}
@@ -580,9 +580,9 @@ FAILEDPOINT:
 	}
 
 	if (outarr)
-		CMUTIL_CALL(outarr, Destroy);
+        CMCall(outarr, Destroy);
 	if (array)
-		CMUTIL_CALL(array, Destroy);
+        CMCall(array, Destroy);
 	return stmt;
 }
 
@@ -643,7 +643,7 @@ CMDBM_STATIC OCIStmt *CMDBM_Oracle_SelectBase(
 						  column->typecd, &(column->indicator),
 						  0, 0, OCI_DEFAULT);
 
-		CMUTIL_CALL(outcols, Add, column);
+        CMCall(outcols, Add, column);
 	}
 	succ = CMTrue;
 FAILEDPOINT:
@@ -664,20 +664,20 @@ CMDBM_STATIC CMUTIL_JsonObject *CMDBM_Oracle_FetchRow(
 					  stmt, conn->errhp, 1, OCI_FETCH_NEXT, OCI_DEFAULT);
 	if (status != OCI_NO_DATA && status != OCI_NEED_DATA) {
 		res = CMUTIL_JsonObjectCreate();
-		for (i=0; i<CMUTIL_CALL(cols, GetSize); i++) {
+        for (i=0; i<CMCall(cols, GetSize); i++) {
 			CMDBM_OracleColumn *col =
-					(CMDBM_OracleColumn*)CMUTIL_CALL(cols, GetAt, i);
+                    (CMDBM_OracleColumn*)CMCall(cols, GetAt, i);
 			switch(col->typecd) {
 			case SQLT_INT:
-				CMUTIL_CALL(res, PutLong, col->name,
+                CMCall(res, PutLong, col->name,
                             (int64_t)*((int64_t*)col->buffer));
 				break;
 			case SQLT_FLT:
-				CMUTIL_CALL(res, PutDouble, col->name,
+                CMCall(res, PutDouble, col->name,
 							(double)*((double*)col->buffer));
 				break;
 			default:
-				CMUTIL_CALL(res, PutString, col->name, col->buffer);
+                CMCall(res, PutString, col->name, col->buffer);
 				// must be reset for next call
 				memset(col->buffer, 0x0, col->bufsz);
 			}
@@ -697,9 +697,9 @@ CMDBM_STATIC CMUTIL_JsonObject *CMDBM_Oracle_GetRow(
 	OCIStmt *stmt = CMDBM_Oracle_SelectBase(conn, query, binds, outs, outcols);
 	CMUTIL_JsonObject *res = CMDBM_Oracle_FetchRow(conn, stmt, outcols);
 	if (res == NULL)
-		CMLogError("cannot fetch row.\n%s", CMUTIL_CALL(query, GetCString));
+        CMLogError("cannot fetch row.\n%s", CMCall(query, GetCString));
 
-	CMUTIL_CALL(outcols, Destroy);
+    CMCall(outcols, Destroy);
 	if (stmt) OCIHandleFree(stmt, OCI_HTYPE_STMT);
 	CMUTIL_UNUSED(initres);
 	return res;
@@ -713,15 +713,15 @@ CMDBM_STATIC CMUTIL_JsonValue *CMDBM_Oracle_GetOneValue(
 	CMUTIL_JsonObject *row =
 			CMDBM_Oracle_GetRow(initres, connection, query, binds, outs);
 	if (row) {
-		CMUTIL_StringArray *keys = CMUTIL_CALL(row, GetKeys);
-		if (CMUTIL_CALL(keys, GetSize) > 0) {
-			const char *key = CMUTIL_CALL(keys, GetCString, 0);
-			res = (CMUTIL_JsonValue*)CMUTIL_CALL(row, Remove, key);
+        CMUTIL_StringArray *keys = CMCall(row, GetKeys);
+        if (CMCall(keys, GetSize) > 0) {
+            const char *key = CMCall(keys, GetCString, 0);
+            res = (CMUTIL_JsonValue*)CMCall(row, Remove, key);
 		} else {
 			CMLogError("row does not contain any fields.\n%s",
-					   CMUTIL_CALL(query, GetCString));
+                       CMCall(query, GetCString));
 		}
-		CMUTIL_CALL(keys, Destroy);
+        CMCall(keys, Destroy);
 		CMUTIL_JsonDestroy(row);
 	}
 	return res;
@@ -739,9 +739,9 @@ CMDBM_STATIC CMUTIL_JsonArray *CMDBM_Oracle_GetList(
 	CMUTIL_JsonArray *res = CMUTIL_JsonArrayCreate();
 
 	while ((row = CMDBM_Oracle_FetchRow(conn, stmt, outcols)) != NULL)
-		CMUTIL_CALL(res, Add, (CMUTIL_Json*)row);
+        CMCall(res, Add, (CMUTIL_Json*)row);
 
-	CMUTIL_CALL(outcols, Destroy);
+    CMCall(outcols, Destroy);
 	if (stmt) OCIHandleFree(stmt, OCI_HTYPE_STMT);
 	CMUTIL_UNUSED(initres);
 	return res;
@@ -792,7 +792,7 @@ CMDBM_STATIC void *CMDBM_Oracle_OpenCursor(
 		res->outcols = outcols;
 		res->stmt = stmt;
 	} else {
-		CMUTIL_CALL(outcols, Destroy);
+        CMCall(outcols, Destroy);
 	}
 	CMUTIL_UNUSED(initres);
 	return res;
@@ -802,7 +802,7 @@ CMDBM_STATIC void CMDBM_Oracle_CloseCursor(void *cursor)
 {
 	CMDBM_Oracle_Cursor *csr = (CMDBM_Oracle_Cursor*)cursor;
 	if (csr) {
-		if (csr->outcols) CMUTIL_CALL(csr->outcols, Destroy);
+        if (csr->outcols) CMCall(csr->outcols, Destroy);
 		if (csr->stmt) OCIHandleFree(csr->stmt, OCI_HTYPE_STMT);
 		CMFree(csr);
 	}

@@ -56,7 +56,7 @@ CMDBM_STATIC void CMDBM_MySQL_CleanUp(
 }
 
 CMDBM_STATIC char *CMDBM_MySQL_GetBindString(
-		void *initres, int index, char *buffer)
+        void *initres, uint index, char *buffer)
 {
 	CMUTIL_UNUSED(initres, index);
 	strcpy(buffer, "?");
@@ -394,7 +394,7 @@ CMDBM_STATIC void CMDBM_MySQL_ResultAssignString(
         CMFree(buffer);
         bind->buffer = NULL;
         bind->buffer_length = 0;
-//		CMUTIL_CALL(row, PutString, finfo->name, (char*)bind->buffer);
+//		CMCall(row, PutString, finfo->name, (char*)bind->buffer);
 //		memset(bind->buffer, 0x0, 4096);
 	} else {
         CMCall(row, PutNull, finfo->name);
