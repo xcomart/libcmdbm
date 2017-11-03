@@ -32,7 +32,7 @@ struct CMDBM_ModuleInterface {
 			void *initres);
 	char *(*GetBindString)(
 			void *initres,
-			int index,
+            uint index,
 			char *buffer);
 	const char *(*GetTestQuery)();
 	void *(*OpenConnection)(

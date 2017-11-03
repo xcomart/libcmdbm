@@ -59,13 +59,13 @@ CMDBM_STATIC void *CMDBM_PgSQL_OpenConnection(
 {
 	int i;
 	char *key[128], *value[128];
-	CMUTIL_StringArray *keys = CMUTIL_CALL(params, GetKeys);
-	for (i=0; i<CMUTIL_CALL(keys, GetSize); i++) {
-		key[i] = (char*)CMUTIL_CALL(keys, GetCString, i);
-		value[i] = (char*)CMUTIL_CALL(params, GetCString, key[i]);
+    CMUTIL_StringArray *keys = CMCall(params, GetKeys);
+    for (i=0; i<CMCall(keys, GetSize); i++) {
+        key[i] = (char*)CMCall(keys, GetCString, i);
+        value[i] = (char*)CMCall(params, GetCString, key[i]);
 	}
 	key[i] = value[i] = NULL;
-	CMUTIL_CALL(keys, Destroy);
+    CMCall(keys, Destroy);
 }
 
 CMDBM_STATIC void CMDBM_PgSQL_CloseConnection(

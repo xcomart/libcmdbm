@@ -19,7 +19,7 @@ The libcmdbm library :
 * is written in pure ISO C99 code
 * runs on almost every platforms
 * supports Oracle, MySQL, PgSQL and ODBC basically out of box,
-and any database can be added by creating interface module.
+    and any database can be added by creating interface module.
 * offers same API with different database type.
 * supports connecting to multiple databases.
 * connection pooling implemented by default.

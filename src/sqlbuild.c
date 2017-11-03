@@ -3,17 +3,19 @@
 
 CMUTIL_LogDefine("cmdbm.sqlbuild")
 
-CMDBM_STATIC char* CMDBM_RevCaseEnds(char *q, char *limit, char *n)
+CMDBM_STATIC const char* CMDBM_RevCaseEnds(
+        const char *q, const char *limit, const char *n)
 {
 	int ed = (int)strlen(n);
-	char *p = n + ed - 1;
+    const char *p = n + ed - 1;
     while (limit < p && n < q && toupper(*q) == toupper(*p)) {
         q--; p--;
     }
 	return n == p && toupper(*q) == toupper(*p)? q:NULL;
 }
 
-CMDBM_STATIC char* CMDBM_CaseStarts(char *p, char *limit, char *n)
+CMDBM_STATIC const char* CMDBM_CaseStarts(
+        const char *p, const char *limit, const char *n)
 {
 	while (*p && *n && p < limit && toupper(*p) == toupper(*n)) {
 		p++; n++;
@@ -296,8 +298,8 @@ CMDBM_STATIC CMUTIL_Bool CMDBM_BuildTrim(
 		const char *prov = CMCall(sprov, GetCString);
 		const char *suov = CMCall(ssuov, GetCString);
 
-		char *p = (char*)CMCall(sbuf, GetCString);
-		char *q = p, *r;
+        const char *p = CMCall(sbuf, GetCString);
+        const char *q = p, *r;
 		CMUTIL_StringArray *subs = NULL;
         uint i;
 
@@ -314,7 +316,7 @@ CMDBM_STATIC CMUTIL_Bool CMDBM_BuildTrim(
 			subs = CMUTIL_StringSplit(suov, "|");
 			for (i=0; i<CMCall(subs, GetSize); i++) {
 				CMUTIL_String *sd = CMCall(subs, GetAt, i);
-				char *d = (char*)CMCall(sd, GetCString);
+                const char *d = CMCall(sd, GetCString);
 				q = CMDBM_RevCaseEnds(r-1, p, d);
 				if (q && (strchr(CMDBM_SQLDELIMS, *(q-1)) ||
 						  strchr(CMDBM_SQLDELIMS, *d))) {
@@ -330,7 +332,7 @@ CMDBM_STATIC CMUTIL_Bool CMDBM_BuildTrim(
 			subs = CMUTIL_StringSplit(prov, "|");
 			for (i=0; i<CMCall(subs, GetSize); i++) {
 				CMUTIL_String *sd = CMCall(subs, GetAt, i);
-				char *d = (char*)CMCall(sd, GetCString);
+                const char *d = CMCall(sd, GetCString);
 				q = CMDBM_CaseStarts(p, r, d);
 				if (q && (strchr(CMDBM_SQLDELIMS, *q) ||
 						strchr(CMDBM_SQLDELIMS, *d))) {
