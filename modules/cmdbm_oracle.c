@@ -273,8 +273,8 @@ typedef struct CMDBM_OracleColumn {
 	char		*name;
     void		*buffer;
     OCIDefine	*define;
-    uint		index;
-    uint		bufsz;
+    uint32_t		index;
+    uint32_t		bufsz;
     int			indicator;
     ub2			typecd;
     short       dummy_padder;
@@ -283,7 +283,7 @@ typedef struct CMDBM_OracleColumn {
 CMDBM_STATIC CMUTIL_Bool CMDBM_Oracle_BindLong(
 		CMDBM_OracleSession *conn, OCIBind **bind,
 		OCIStmt *stmt, CMUTIL_JsonValue *jval,
-        uint pos, CMUTIL_Array *bufarr, CMUTIL_Json *out,
+        uint32_t pos, CMUTIL_Array *bufarr, CMUTIL_Json *out,
 		CMUTIL_Array *outarr)
 {
     int64_t *val = CMAlloc(sizeof(int64_t));
@@ -313,7 +313,7 @@ ENDPOINT:
 CMDBM_STATIC CMUTIL_Bool CMDBM_Oracle_BindDouble(
 		CMDBM_OracleSession *conn, OCIBind **bind,
 		OCIStmt *stmt, CMUTIL_JsonValue *jval,
-        uint pos, CMUTIL_Array *bufarr, CMUTIL_Json *out,
+        uint32_t pos, CMUTIL_Array *bufarr, CMUTIL_Json *out,
 		CMUTIL_Array *outarr)
 {
 	double *val = CMAlloc(sizeof(double));
@@ -343,7 +343,7 @@ ENDPOINT:
 CMDBM_STATIC CMUTIL_Bool CMDBM_Oracle_BindString(
 		CMDBM_OracleSession *conn, OCIBind **bind,
 		OCIStmt *stmt, CMUTIL_JsonValue *jval,
-        uint pos, CMUTIL_Array *bufarr, CMUTIL_Json *out,
+        uint32_t pos, CMUTIL_Array *bufarr, CMUTIL_Json *out,
 		CMUTIL_Array *outarr)
 {
 	char buf[4096] = {0,};
@@ -377,7 +377,7 @@ ENDPOINT:
 CMDBM_STATIC CMUTIL_Bool CMDBM_Oracle_BindBoolean(
 		CMDBM_OracleSession *conn, OCIBind **bind,
 		OCIStmt *stmt, CMUTIL_JsonValue *jval,
-        uint pos, CMUTIL_Array *bufarr, CMUTIL_Json *out,
+        uint32_t pos, CMUTIL_Array *bufarr, CMUTIL_Json *out,
 		CMUTIL_Array *outarr)
 {
 	int *val = CMAlloc(sizeof(int));
@@ -407,7 +407,7 @@ ENDPOINT:
 CMDBM_STATIC CMUTIL_Bool CMDBM_Oracle_BindNull(
 		CMDBM_OracleSession *conn, OCIBind **bind,
 		OCIStmt *stmt, CMUTIL_JsonValue *jval,
-        uint pos, CMUTIL_Array *bufarr, CMUTIL_Json *out,
+        uint32_t pos, CMUTIL_Array *bufarr, CMUTIL_Json *out,
 		CMUTIL_Array *outarr)
 {
 	sb4 status, ind = -1;
@@ -423,7 +423,7 @@ ENDPOINT:
 typedef CMUTIL_Bool (*CMDBM_Oracle_BindProc)(
 		CMDBM_OracleSession *conn, OCIBind **bind,
 		OCIStmt *stmt, CMUTIL_JsonValue *jval,
-        uint pos, CMUTIL_Array *bufarr, CMUTIL_Json *out,
+        uint32_t pos, CMUTIL_Array *bufarr, CMUTIL_Json *out,
 		CMUTIL_Array *outarr);
 static CMDBM_Oracle_BindProc g_cmdbm_oracle_bindprocs[]={
 	CMDBM_Oracle_BindLong,
@@ -504,7 +504,7 @@ CMDBM_STATIC OCIStmt *CMDBM_Oracle_ExecuteBase(
 		CMDBM_OracleSession *conn, CMUTIL_String *query,
 		CMUTIL_JsonArray *binds, CMUTIL_JsonObject *outs)
 {
-    uint i;
+    uint32_t i;
     size_t bsize;
 	sb4 status;
 	CMUTIL_Bool succ = CMFalse;
@@ -557,7 +557,7 @@ CMDBM_STATIC OCIStmt *CMDBM_Oracle_ExecuteBase(
             const char *cidx = CMCall(keys, GetCString, i);
 			CMUTIL_JsonValue *jval =
                     (CMUTIL_JsonValue*)CMCall(outs, Get, cidx);
-            uint idx = (uint)atoi(cidx);
+            uint32_t idx = (uint32_t)atoi(cidx);
 			CMDBM_OracleColumn *col =
                     (CMDBM_OracleColumn*)CMCall(outarr, GetAt, idx);
 			CMDBM_Oracle_SetOutValue(col, jval);
@@ -657,7 +657,7 @@ FAILEDPOINT:
 CMDBM_STATIC CMUTIL_JsonObject *CMDBM_Oracle_FetchRow(
 		CMDBM_OracleSession *conn, OCIStmt *stmt, CMUTIL_Array *cols)
 {
-    uint i;
+    uint32_t i;
 	sb4 status;
 	CMUTIL_JsonObject *res = NULL;
 	CMDBM_OracleCheck(conn, status, FAILEDPOINT, OCIStmtFetch,
