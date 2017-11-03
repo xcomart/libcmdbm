@@ -129,7 +129,7 @@ CMDBM_STATIC void CMDBM_Oracle_CleanUp(void *initres)
 }
 
 CMDBM_STATIC char *CMDBM_Oracle_GetBindString(
-        void *initres, uint index, char *buffer)
+        void *initres, uint32_t index, char *buffer)
 {
 	CMUTIL_UNUSED(initres);
     sprintf(buffer, ":%u", (index+1));

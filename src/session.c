@@ -181,7 +181,7 @@ CMDBM_STATIC void CMDBM_SessionCleanUp(
 	CMDBM_DatabaseEx *db = CMCall(isess->ctx, GetDatabase, dbid);
 	CMCall(db, UnlockQueryItem);
 	if (outs) {
-        uint i;
+        uint32_t i;
 		CMUTIL_StringArray *keyset = CMCall(outs, GetKeys);
 		for (i=0; i<CMCall(keyset, GetSize); i++) {
 			const char *key = CMCall(keyset, GetCString, i);
@@ -294,7 +294,7 @@ CMDBM_STATIC CMUTIL_JsonArray *CMDBM_SessionGetRowSet(
 CMDBM_STATIC CMUTIL_Bool CMDBM_SessionForEachRow(
 		CMDBM_Session *sess, const char *dbid, const char *sqlid,
 		CMUTIL_JsonObject *params, void *udata,
-		CMUTIL_Bool (*rowcb)(CMUTIL_JsonObject*, int, void*))
+        CMUTIL_Bool (*rowcb)(CMUTIL_JsonObject*, uint32_t, void*))
 {
 	CMUTIL_Bool res = CMFalse;
 	CMDBM_Session_Internal *isess = (CMDBM_Session_Internal*)sess;
@@ -311,7 +311,7 @@ CMDBM_STATIC CMUTIL_Bool CMDBM_SessionForEachRow(
 				CMLogErrorS("selectKey part of %s.%s execution failed.",
 							dbid, sqlid);
 			} else {
-				int idx = 0;
+                uint32_t idx = 0;
 				CMUTIL_JsonObject *row = NULL;
 				CMUTIL_Bool cont = CMTrue;
 				while (cont && ((row = CMCall(csr, GetNext)) != NULL)) {

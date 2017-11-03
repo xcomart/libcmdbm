@@ -97,7 +97,7 @@ CMDBM_STATIC CMDBM_MapperFile *CMDBM_MapperFileCreate(
 CMDBM_STATIC void CMDBM_DatabaseRemoveFile(
 		CMDBM_Database_Internal *idb, const char *fpath)
 {
-    uint i;
+    uint32_t i;
 	CMDBM_MapperFile *mfile = NULL;
 	mfile = (CMDBM_MapperFile*)CMCall(idb->mfiles, Remove, fpath);
 	if (mfile) {
@@ -166,7 +166,7 @@ CMDBM_STATIC void CMDBM_MapperFileSetDestroy(void *data)
 CMDBM_STATIC CMDBM_MapperFileSet *CMDBM_DatabaseBuidlMapperSet(
 		const char *dpath, const char  *fpattern, CMUTIL_Bool recursive)
 {
-    uint i;
+    uint32_t i;
 	CMUTIL_File *dfile = CMUTIL_FileCreate(dpath);
 	CMUTIL_FileList *flist = CMCall(dfile, Find, fpattern, recursive);
 	CMDBM_MapperFileSet *mset = CMAlloc(sizeof(CMDBM_MapperFileSet));
@@ -216,7 +216,7 @@ CMDBM_STATIC void CMDBM_DatabaseRemoveMapperSet(
 
 	mset = (CMDBM_MapperFileSet*)CMCall(idb->mfsets, Get, key);
 	if (mset) {
-        uint i;
+        uint32_t i;
 		CMUTIL_StringArray *qkeys = NULL;
 		qkeys = CMCall(mset->queries, GetKeys);
 		if (qkeys) {
@@ -343,7 +343,7 @@ CMDBM_STATIC void CMDBM_DatabaseMapperReloader(void *data)
 
 	iter = CMCall(idb->mfsets, Iterator);
 	while (CMCall(iter, HasNext)) {
-        uint i, j;
+        uint32_t i, j;
 		CMDBM_MapperFileSet *mset =
 				(CMDBM_MapperFileSet*)CMCall(iter, Next);
 		CMUTIL_File *dir = CMUTIL_FileCreate(mset->dpath);

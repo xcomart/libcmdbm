@@ -96,7 +96,7 @@ CMDBM_STATIC CMUTIL_Bool CMDBM_BuildChildren(
 		CMUTIL_JsonObject *outs,
 		CMUTIL_List *rembuf)
 {
-    uint i;
+    uint32_t i;
     size_t size = CMCall(node, ChildCount);
 
 	for (i=0; i<size; i++) {
@@ -177,7 +177,7 @@ CMDBM_STATIC CMUTIL_Bool CMDBM_BuildOutParam(
 {
 	const char *key = CMCall(node, GetName);
 	char pbuf[1024];
-    uint idx = (uint)CMCall(bindings, GetSize);
+    uint32_t idx = (uint32_t)CMCall(bindings, GetSize);
 	CMUTIL_Json *value = CMCall(params, Get, key);
 
 	CMCall(conn, GetBindString, idx, pbuf);
@@ -261,7 +261,7 @@ CMDBM_STATIC CMUTIL_Bool CMDBM_BuildBind(
 	CMUTIL_Json *data = CMCall(params, Get, key);
 	CMUTIL_UNUSED(sess, after, outs, rembuf);
 	if (data) {
-        uint index = (uint)CMCall(bindings, GetSize);
+        uint32_t index = (uint32_t)CMCall(bindings, GetSize);
 		char buf[50];
 		CMCall(conn, GetBindString, index, buf);
 		CMCall(obuf, AddString, buf);
@@ -301,7 +301,7 @@ CMDBM_STATIC CMUTIL_Bool CMDBM_BuildTrim(
         const char *p = CMCall(sbuf, GetCString);
         const char *q = p, *r;
 		CMUTIL_StringArray *subs = NULL;
-        uint i;
+        uint32_t i;
 
 		// save string end pointer
 		r = p + CMCall(sbuf, GetSize);
@@ -378,7 +378,7 @@ CMDBM_STATIC CMUTIL_Bool CMDBM_BuildForeach(
 	const char *sitemkey, *sindexkey, *scolkey;
 	CMUTIL_Json *itembackup, *indexbackup;
 	CMUTIL_JsonArray *collection;
-    uint i;
+    uint32_t i;
     size_t size;
 
 	scoll = CMCall(node, GetAttribute, "collection");
@@ -486,7 +486,7 @@ CMDBM_STATIC CMUTIL_Bool CMDBM_BuildChoose(
 		CMUTIL_List *rembuf)
 {
 	CMUTIL_Bool isApplied = CMFalse;
-    uint i;
+    uint32_t i;
     size_t size = CMCall(node, ChildCount);
 
 	for(i=0; i<size && !isApplied; i++) {

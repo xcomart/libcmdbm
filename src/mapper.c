@@ -597,7 +597,7 @@ CMDBM_STATIC CMUTIL_Bool CMDBM_MapperRebuildChildren(
 		CMUTIL_Map *queries, CMUTIL_XmlNode *node)
 {
 	if (queries && node) {
-        uint i;
+        uint32_t i;
 		for (i=0; i<CMCall(node, ChildCount); i++) {
 			CMUTIL_XmlNode *cld = CMCall(node, ChildAt, i);
 			if (!CMDBM_MapperRebuildItem(queries, cld))
@@ -648,17 +648,17 @@ CMDBM_STATIC CMUTIL_Bool CMDBM_MapperRebuildText(
 		if (s < r) break;
 
         child = CMUTIL_XmlNodeCreateWithLen(
-                    CMUTIL_XmlNodeText, r, (ulong)(s-r));
+                    CMUTIL_XmlNodeText, r, (uint64_t)(s-r));
 		CMDBM_MapperItemProc(queries, child, CMDBM_NTSqlText);;
 		CMCall(node, AddChild, child);
 		ntype = p && s == p? CMDBM_NTSqlBind:CMDBM_NTSqlReplace;
 
 		s += 2;
 		r = strchr(s, '}');
-        strncat(buf, s, (ulong)(r - s));
+        strncat(buf, s, (uint64_t)(r - s));
 		if (ntype == CMDBM_NTSqlBind) {
 			// check out parameter
-            uint i;
+            uint32_t i;
 			CMUTIL_StringArray *subs = CMUTIL_StringSplit(buf, ",");
 			if (CMCall(subs, GetSize) > 1) {
 				for (i=1; i<CMCall(subs, GetSize); i++) {
@@ -696,7 +696,7 @@ CMDBM_STATIC CMUTIL_Bool CMDBM_MapperRebuildText(
 
     p = CMCall(node, GetName);
 	child = CMUTIL_XmlNodeCreateWithLen(
-                CMUTIL_XmlNodeText, r, strlen(p)-(ulong)(r-p));
+                CMUTIL_XmlNodeText, r, strlen(p)-(uint64_t)(r-p));
 	CMDBM_MapperItemProc(queries, child, CMDBM_NTSqlText);
 	CMCall(node, AddChild, child);
 
