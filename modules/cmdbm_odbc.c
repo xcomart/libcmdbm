@@ -5,6 +5,12 @@
 
 CMUTIL_LogDefine("cmdbm.module.odbc")
 
+#if defined(MSWIN)
+# ifdef UNICODE
+#  undef UNICODE
+# endif
+# include <windows.h>
+#endif
 #include <sqlext.h>
 
 /*******************************************/
@@ -94,7 +100,7 @@ FAILED:
 }
 
 CMDBM_STATIC char *CMDBM_ODBC_GetBindString(
-        void *initres, uint index, char *buffer)
+        void *initres, uint32_t index, char *buffer)
 {
     CMUTIL_UNUSED(initres, index);
     strcpy(buffer, "?");
@@ -245,7 +251,7 @@ void CMDBM_ODBC_BindFieldDestroy(void *data) {
 
 CMDBM_STATIC CMUTIL_Bool CMDBM_ODBC_BindLong(
         SQLHSTMT stmt, CMUTIL_JsonValue *jval,
-        CMUTIL_Array *bufarr, CMUTIL_Json *out, uint index)
+        CMUTIL_Array *bufarr, CMUTIL_Json *out, uint32_t index)
 {
     SQLLEN vlen = sizeof(int64_t);
     CMDBM_ODBC_BindField *bfield =
@@ -254,7 +260,7 @@ CMDBM_STATIC CMUTIL_Bool CMDBM_ODBC_BindLong(
     bfield->longVal = CMCall(jval, GetLong);
     TRYODBC(stmt, SQL_HANDLE_STMT, SQLBindParameter(
                 stmt, (SQLUSMALLINT)(index+1), inout, SQL_C_SBIGINT,
-                SQL_BIGINT, (ulong)vlen, 0, &bfield->longVal,
+                SQL_BIGINT, (uint64_t)vlen, 0, &bfield->longVal,
                 vlen, &bfield->outLen));
     CMCall(bufarr, Add, bfield);
     return CMTrue;
@@ -265,7 +271,7 @@ FAILED:
 
 CMDBM_STATIC CMUTIL_Bool CMDBM_ODBC_BindDouble(
         SQLHSTMT stmt, CMUTIL_JsonValue *jval,
-        CMUTIL_Array *bufarr, CMUTIL_Json *out, uint index)
+        CMUTIL_Array *bufarr, CMUTIL_Json *out, uint32_t index)
 {
     SQLLEN vlen = sizeof(double);
     CMDBM_ODBC_BindField *bfield =
@@ -274,7 +280,7 @@ CMDBM_STATIC CMUTIL_Bool CMDBM_ODBC_BindDouble(
     bfield->doubleVal = CMCall(jval, GetDouble);
     TRYODBC(stmt, SQL_HANDLE_STMT, SQLBindParameter(
                 stmt, (SQLUSMALLINT)(index+1), inout, SQL_C_DOUBLE,
-                SQL_DOUBLE, (ulong)vlen, 0, &bfield->doubleVal,
+                SQL_DOUBLE, (uint64_t)vlen, 0, &bfield->doubleVal,
                 vlen, &bfield->outLen));
     CMCall(bufarr, Add, bfield);
     return CMTrue;
@@ -285,7 +291,7 @@ FAILED:
 
 CMDBM_STATIC CMUTIL_Bool CMDBM_ODBC_BindString(
         SQLHSTMT stmt, CMUTIL_JsonValue *jval,
-        CMUTIL_Array *bufarr, CMUTIL_Json *out, uint index)
+        CMUTIL_Array *bufarr, CMUTIL_Json *out, uint32_t index)
 {
     CMUTIL_String *str = CMCall(jval, GetString);
     SQLLEN osize = (SQLLEN)CMCall(str, GetSize);
@@ -294,11 +300,11 @@ CMDBM_STATIC CMUTIL_Bool CMDBM_ODBC_BindString(
     SQLSMALLINT inout = out? SQL_PARAM_INPUT:SQL_PARAM_OUTPUT;
     if (out && osize < 4096)
         osize = 4096;
-    bfield->strVal = CMAlloc((ulong)osize+1);
+    bfield->strVal = CMAlloc((uint64_t)osize+1);
     memcpy(bfield->strVal, CMCall(str, GetCString), CMCall(str, GetSize)+1);
     TRYODBC(stmt, SQL_HANDLE_STMT, SQLBindParameter(
                 stmt, (SQLUSMALLINT)(index+1), inout, SQL_C_CHAR,
-                SQL_VARCHAR, (ulong)CMCall(str, GetSize), 0, bfield->strVal,
+                SQL_VARCHAR, (uint64_t)CMCall(str, GetSize), 0, bfield->strVal,
                 osize, &bfield->outLen));
     CMCall(bufarr, Add, bfield);
     return CMTrue;
@@ -309,7 +315,7 @@ FAILED:
 
 CMDBM_STATIC CMUTIL_Bool CMDBM_ODBC_BindBoolean(
         SQLHSTMT stmt, CMUTIL_JsonValue *jval,
-        CMUTIL_Array *bufarr, CMUTIL_Json *out, uint index)
+        CMUTIL_Array *bufarr, CMUTIL_Json *out, uint32_t index)
 {
     SQLLEN vlen = sizeof(short);
     CMDBM_ODBC_BindField *bfield =
@@ -318,7 +324,7 @@ CMDBM_STATIC CMUTIL_Bool CMDBM_ODBC_BindBoolean(
     bfield->boolVal = CMCall(jval, GetBoolean);
     TRYODBC(stmt, SQL_HANDLE_STMT, SQLBindParameter(
                 stmt, (SQLUSMALLINT)(index+1), inout, SQL_C_SSHORT,
-                SQL_SMALLINT, (ulong)vlen, 0, &bfield->boolVal,
+                SQL_SMALLINT, (uint64_t)vlen, 0, &bfield->boolVal,
                 vlen, &bfield->outLen));
     CMCall(bufarr, Add, bfield);
     return CMTrue;
@@ -329,7 +335,7 @@ FAILED:
 
 CMDBM_STATIC CMUTIL_Bool CMDBM_ODBC_BindNull(
         SQLHSTMT stmt, CMUTIL_JsonValue *jval,
-        CMUTIL_Array *bufarr, CMUTIL_Json *out, uint index)
+        CMUTIL_Array *bufarr, CMUTIL_Json *out, uint32_t index)
 {
     CMDBM_ODBC_BindField *bfield =
             CMDBM_ODBC_BindFieldCreate(CMUTIL_JsonValueNull);
@@ -338,7 +344,7 @@ CMDBM_STATIC CMUTIL_Bool CMDBM_ODBC_BindNull(
         // change to string type for output
         SQLLEN osize = 4096;
         bfield->jtype = CMUTIL_JsonValueString;
-        bfield->strVal = CMAlloc((ulong)osize);
+        bfield->strVal = CMAlloc((uint64_t)osize);
         TRYODBC(stmt, SQL_HANDLE_STMT, SQLBindParameter(
                     stmt, (SQLUSMALLINT)(index+1), SQL_PARAM_OUTPUT, SQL_C_CHAR,
                     SQL_VARCHAR, 1, 0, bfield->strVal,
@@ -357,7 +363,7 @@ FAILED:
 }
 
 typedef CMUTIL_Bool (*CMDBM_ODBC_BindProc)(
-        SQLHSTMT,CMUTIL_JsonValue*,CMUTIL_Array*,CMUTIL_Json*,uint);
+        SQLHSTMT,CMUTIL_JsonValue*,CMUTIL_Array*,CMUTIL_Json*,uint32_t);
 static CMDBM_ODBC_BindProc g_cmdbm_odbc_bindprocs[]={
     CMDBM_ODBC_BindLong,
     CMDBM_ODBC_BindDouble,
@@ -423,7 +429,7 @@ CMDBM_STATIC SQLHSTMT CMDBM_ODBC_ExecuteBase(
         CMDBM_ODBCSession *sess, CMUTIL_String *query,
         CMUTIL_JsonArray *binds, CMUTIL_JsonObject *outs)
 {
-    uint i;
+    uint32_t i;
     size_t bsize = 0;
     CMUTIL_Bool succ = CMFalse;
     SQLHSTMT stmt = NULL;
@@ -469,7 +475,7 @@ CMDBM_STATIC SQLHSTMT CMDBM_ODBC_ExecuteBase(
             CMUTIL_JsonValue *jval =
                     (CMUTIL_JsonValue*)CMCall(outs, Get, cidx);
             CMDBM_ODBC_BindField *bfield = NULL;
-            uint idx = (uint)atoi(cidx);
+            uint32_t idx = (uint32_t)atoi(cidx);
             bfield = (CMDBM_ODBC_BindField*)CMCall(array, GetAt, idx);
             CMDBM_ODBC_SetOutValue(bfield, jval);
         }
@@ -522,7 +528,7 @@ CMDBM_STATIC void CMDBM_ODBC_ResultAssignString(
         }
         bytes = (size > 1024) || (size == SQL_NO_TOTAL) ?
                           1024 : size;
-        CMCall(strbuf, AddNString, (char*)buf, (ulong)bytes);
+        CMCall(strbuf, AddNString, (char*)buf, (uint64_t)bytes);
     }
 FAILED:
     // does nothing to do
@@ -570,8 +576,8 @@ CMDBM_STATIC SQLHSTMT CMDBM_ODBC_SelectBase(
                                 &digits,            // Number of decimal digits
                                 &nullable));
             col = CMDBM_ODBC_BindFieldCreate(CMUTIL_JsonValueNull);
-            col->name = CMAlloc((ulong)namelen+1);
-            memcpy(col->name, name, (ulong)namelen);
+            col->name = CMAlloc((uint64_t)namelen+1);
+            memcpy(col->name, name, (uint64_t)namelen);
             *(col->name + namelen) = 0x0;
             CMCall(fields, Add, col);
             switch (dtype) {
