@@ -9,7 +9,7 @@ CMUTIL_LogDefine("cmdbm.module.mysql")
 
 #define MYSQL_LOGERROR(sess,...) do {\
 	char buf[4096]; sprintf(buf,##__VA_ARGS__);\
-	if (sess) {\
+    if (sess && sess->conn) {\
 		CMLogError("%s: %s", buf, mysql_error(sess->conn));\
 	} else CMLogError("%s", buf);\
 } while(0)
@@ -215,7 +215,7 @@ CMDBM_STATIC void CMDBM_MySQL_BindBoolean(
 		CMUTIL_Array *bufarr, CMUTIL_Json *out)
 {
 	char *pval = CMAlloc(1);
-    *pval = (char)CMCall(jval, GetBoolean);
+    *pval = (char)(0+CMCall(jval, GetBoolean));
 	bind->buffer_type = MYSQL_TYPE_TINY;
 	bind->buffer = pval;
 	bind->buffer_length = 1;
