@@ -6,6 +6,7 @@ DEFINES += CMDBM_LIBRARY
 CONFIG += CMDBM_MYSQL
 CONFIG += CMDBM_ORACLE
 CONFIG += CMDBM_ODBC
+CONFIG += CMDBM_PGSQL
 
 !win32-msvc* {
     CONFIG += link_pkgconfig
@@ -51,6 +52,13 @@ contains(CONFIG, CMDBM_ODBC) {
     }
 }
 
+contains(CONFIG, CMDBM_PGSQL) {
+    DEFINES += CMDBM_PGSQL
+    !win32-msvc* {
+        PKGCONFIG += libpq
+    }
+}
+
 DESTDIR = $$BUILD_DIR/$$LIB_DIR
 CONFIG(debug, debug|release) {
     DEFINES += DEBUG
@@ -88,8 +96,10 @@ DISTFILES += \
     data/cmdbm_sqlmap.dtd \
     README.md
 
-INCLUDE_TARGET.COMMANDS = $$COPY_CMD ../libcmdbm/src/libcmdbm.h $$BUILD_DIR/include
+!win32-msvc* {
+    INCLUDE_TARGET.COMMANDS = $$COPY_CMD ../libcmdbm/src/libcmdbm.h $$BUILD_DIR/include
 
-QMAKE_EXTRA_TARGETS += INCLUDE_TARGET
+    QMAKE_EXTRA_TARGETS += INCLUDE_TARGET
 
-POST_TARGETDEPS += INCLUDE_TARGET
+    POST_TARGETDEPS += INCLUDE_TARGET
+}
