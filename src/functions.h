@@ -29,11 +29,11 @@ void CMDBM_MapperInit(void);
 void CMDBM_MapperClear(void);
 
 
-CMUTIL_Bool CMDBM_MapperRebuildItem(
+CMBool CMDBM_MapperRebuildItem(
 		CMUTIL_Map *queries,
 		CMUTIL_XmlNode *node);
 
-CMUTIL_Bool CMDBM_BuildNode(
+CMBool CMDBM_BuildNode(
 		CMDBM_Session *sess,
 		CMDBM_Connection *conn,
 		CMUTIL_XmlNode *node,

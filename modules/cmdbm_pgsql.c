@@ -28,7 +28,7 @@ typedef struct CMDBM_PgSQLCtx {
 
 typedef struct CMDBM_PgSQLConn {
     PGconn *conn;
-    CMUTIL_Bool autocommit;
+    CMBool autocommit;
     int dummy_padder;
 } CMDBM_PgSQLConn;
 
@@ -133,12 +133,12 @@ CMDBM_STATIC void *CMDBM_PgSQL_OpenConnection(
     return res;
 }
 
-CMDBM_STATIC CMUTIL_Bool CMDBM_PgSQL_StartTransaction(
+CMDBM_STATIC CMBool CMDBM_PgSQL_StartTransaction(
         void *initres, void *connection)
 {
     CMDBM_PgSQLConn *conn = (CMDBM_PgSQLConn*)connection;
     PGresult *pr = NULL;
-    CMUTIL_Bool res = CMTrue;
+    CMBool res = CMTrue;
     conn->autocommit = CMFalse;
     pr = PQexec(conn->conn, "BEGIN");
     if (PQresultStatus(pr) != PGRES_COMMAND_OK) {
@@ -158,12 +158,12 @@ CMDBM_STATIC void CMDBM_PgSQL_EndTransaction(
     CMUTIL_UNUSED(initres);
 }
 
-CMDBM_STATIC CMUTIL_Bool CMDBM_PgSQL_CommitTransaction(
+CMDBM_STATIC CMBool CMDBM_PgSQL_CommitTransaction(
         void *initres, void *connection)
 {
     CMDBM_PgSQLConn *conn = (CMDBM_PgSQLConn*)connection;
     PGresult *pr = NULL;
-    CMUTIL_Bool res = CMTrue;
+    CMBool res = CMTrue;
     pr = PQexec(conn->conn, "COMMIT");
     if (PQresultStatus(pr) != PGRES_COMMAND_OK) {
         CMLogError("COMMIT command failed: %s", PQerrorMessage(conn->conn));

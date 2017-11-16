@@ -171,7 +171,7 @@ CLEANUP:
     return sess;
 }
 
-CMDBM_STATIC CMUTIL_Bool CMDBM_ODBC_StartTransaction(
+CMDBM_STATIC CMBool CMDBM_ODBC_StartTransaction(
         void *initres, void *connection)
 {
     CMDBM_ODBCSession *sess = (CMDBM_ODBCSession*)connection;
@@ -195,7 +195,7 @@ FAILED:
     CMUTIL_UNUSED(initres);
 }
 
-CMDBM_STATIC CMUTIL_Bool CMDBM_ODBC_CommitTransaction(
+CMDBM_STATIC CMBool CMDBM_ODBC_CommitTransaction(
         void *initres, void *connection)
 {
     CMDBM_ODBCSession *sess = (CMDBM_ODBCSession*)connection;
@@ -249,7 +249,7 @@ void CMDBM_ODBC_BindFieldDestroy(void *data) {
     }
 }
 
-CMDBM_STATIC CMUTIL_Bool CMDBM_ODBC_BindLong(
+CMDBM_STATIC CMBool CMDBM_ODBC_BindLong(
         SQLHSTMT stmt, CMUTIL_JsonValue *jval,
         CMUTIL_Array *bufarr, CMUTIL_Json *out, uint32_t index)
 {
@@ -269,7 +269,7 @@ FAILED:
     return CMFalse;
 }
 
-CMDBM_STATIC CMUTIL_Bool CMDBM_ODBC_BindDouble(
+CMDBM_STATIC CMBool CMDBM_ODBC_BindDouble(
         SQLHSTMT stmt, CMUTIL_JsonValue *jval,
         CMUTIL_Array *bufarr, CMUTIL_Json *out, uint32_t index)
 {
@@ -289,7 +289,7 @@ FAILED:
     return CMFalse;
 }
 
-CMDBM_STATIC CMUTIL_Bool CMDBM_ODBC_BindString(
+CMDBM_STATIC CMBool CMDBM_ODBC_BindString(
         SQLHSTMT stmt, CMUTIL_JsonValue *jval,
         CMUTIL_Array *bufarr, CMUTIL_Json *out, uint32_t index)
 {
@@ -313,7 +313,7 @@ FAILED:
     return CMFalse;
 }
 
-CMDBM_STATIC CMUTIL_Bool CMDBM_ODBC_BindBoolean(
+CMDBM_STATIC CMBool CMDBM_ODBC_BindBoolean(
         SQLHSTMT stmt, CMUTIL_JsonValue *jval,
         CMUTIL_Array *bufarr, CMUTIL_Json *out, uint32_t index)
 {
@@ -333,7 +333,7 @@ FAILED:
     return CMFalse;
 }
 
-CMDBM_STATIC CMUTIL_Bool CMDBM_ODBC_BindNull(
+CMDBM_STATIC CMBool CMDBM_ODBC_BindNull(
         SQLHSTMT stmt, CMUTIL_JsonValue *jval,
         CMUTIL_Array *bufarr, CMUTIL_Json *out, uint32_t index)
 {
@@ -362,7 +362,7 @@ FAILED:
     return CMFalse;
 }
 
-typedef CMUTIL_Bool (*CMDBM_ODBC_BindProc)(
+typedef CMBool (*CMDBM_ODBC_BindProc)(
         SQLHSTMT,CMUTIL_JsonValue*,CMUTIL_Array*,CMUTIL_Json*,uint32_t);
 static CMDBM_ODBC_BindProc g_cmdbm_odbc_bindprocs[]={
     CMDBM_ODBC_BindLong,
@@ -394,7 +394,7 @@ CMDBM_STATIC void CMDBM_ODBC_BindSetOutString(
 CMDBM_STATIC void CMDBM_ODBC_BindSetOutBoolean(
         CMDBM_ODBC_BindField *bfield, CMUTIL_JsonValue *jval)
 {
-    CMCall(jval, SetBoolean, (CMUTIL_Bool)bfield->boolVal);
+    CMCall(jval, SetBoolean, (CMBool)bfield->boolVal);
 }
 
 CMDBM_STATIC void CMDBM_ODBC_BindSetOutNull(
@@ -431,7 +431,7 @@ CMDBM_STATIC SQLHSTMT CMDBM_ODBC_ExecuteBase(
 {
     uint32_t i;
     size_t bsize = 0;
-    CMUTIL_Bool succ = CMFalse;
+    CMBool succ = CMFalse;
     SQLHSTMT stmt = NULL;
     CMUTIL_Array *array = NULL;
 
@@ -539,7 +539,7 @@ CMDBM_STATIC void CMDBM_ODBC_ResultAssignBoolean(
         CMDBM_ODBC_BindField *finfo, SQLHSTMT stmt,
         CMUTIL_JsonObject *row, SQLUSMALLINT idx)
 {
-    CMUTIL_Bool bval = finfo->boolVal? CMTrue:CMFalse;
+    CMBool bval = finfo->boolVal? CMTrue:CMFalse;
     CMUTIL_UNUSED(stmt, idx);
     CMCall(row, PutBoolean, finfo->name, bval);
 }
@@ -552,7 +552,7 @@ CMDBM_STATIC SQLHSTMT CMDBM_ODBC_SelectBase(
     if (stmt) {
         int i;
         SQLSMALLINT numcols;
-        CMUTIL_Bool succ = CMFalse;
+        CMBool succ = CMFalse;
 
         TRYODBC(stmt, SQL_HANDLE_STMT, SQLNumResultCols (stmt, &numcols));
 
@@ -681,7 +681,7 @@ CMDBM_STATIC CMUTIL_JsonObject *CMDBM_ODBC_GetRow(
                 10, NULL, CMDBM_ODBC_BindFieldDestroy);
     SQLHSTMT stmt = CMDBM_ODBC_SelectBase(sess, query, binds, outs, fields);
     CMUTIL_JsonObject *res = NULL;
-    CMUTIL_Bool succ = CMFalse;
+    CMBool succ = CMFalse;
 
     if (stmt) {
         TRYODBC(stmt, SQL_HANDLE_STMT, SQLFetch(stmt));
@@ -737,7 +737,7 @@ CMDBM_STATIC CMUTIL_JsonArray *CMDBM_ODBC_GetList(
                 10, NULL, CMDBM_ODBC_BindFieldDestroy);
     SQLHSTMT stmt = CMDBM_ODBC_SelectBase(sess, query, binds, outs, fields);
     CMUTIL_JsonArray *res = CMUTIL_JsonArrayCreate();
-    CMUTIL_Bool succ = CMFalse;
+    CMBool succ = CMFalse;
 
     if (stmt) {
         int rcnt = 0;

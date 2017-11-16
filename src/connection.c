@@ -128,7 +128,7 @@ CMDBM_STATIC void CMDBM_ConnectionCloseReal(
 	}
 }
 
-CMDBM_STATIC CMUTIL_Bool CMDBM_ConnectionBeginTransaction(
+CMDBM_STATIC CMBool CMDBM_ConnectionBeginTransaction(
 		CMDBM_Connection *conn)
 {
 	CMDBM_Connection_Internal *iconn = (CMDBM_Connection_Internal*)conn;
@@ -141,7 +141,7 @@ CMDBM_STATIC void CMDBM_ConnectionEndTransaction(CMDBM_Connection *conn)
 	iconn->modif->EndTransaction(iconn->initres, iconn->connection);
 }
 
-CMDBM_STATIC CMUTIL_Bool CMDBM_ConnectionCommit(CMDBM_Connection *conn)
+CMDBM_STATIC CMBool CMDBM_ConnectionCommit(CMDBM_Connection *conn)
 {
 	CMDBM_Connection_Internal *iconn = (CMDBM_Connection_Internal*)conn;
 	return iconn->modif->CommitTransaction(iconn->initres, iconn->connection);

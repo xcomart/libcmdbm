@@ -7,7 +7,7 @@ typedef struct CMDBM_Session_Internal {
 	CMDBM_Session	base;
 	CMUTIL_Map		*conns;
 	CMDBM_ContextEx	*ctx;
-	CMUTIL_Bool		istrans;
+	CMBool		istrans;
     int             dummy_padder;
 } CMDBM_Session_Internal;
 
@@ -23,7 +23,7 @@ typedef struct CMDBM_Session_Internal {
 	}\
 } while(0)
 
-CMDBM_STATIC CMUTIL_Bool CMDBM_SessionBeginTransaction(CMDBM_Session *sess)
+CMDBM_STATIC CMBool CMDBM_SessionBeginTransaction(CMDBM_Session *sess)
 {
 	CMDBM_Session_Internal *isess = (CMDBM_Session_Internal*)sess;
 	if (!isess->istrans) {
@@ -46,7 +46,7 @@ CMDBM_STATIC void CMDBM_SessionEndTransaction(CMDBM_Session *sess)
 	}
 }
 
-CMDBM_STATIC CMUTIL_Bool CMDBM_SessionCommit(CMDBM_Session *sess)
+CMDBM_STATIC CMBool CMDBM_SessionCommit(CMDBM_Session *sess)
 {
 	CMDBM_Session_Internal *isess = (CMDBM_Session_Internal*)sess;
 	if (isess->istrans) {
@@ -105,7 +105,7 @@ CMDBM_STATIC CMUTIL_String *CMDBM_SessionGetQuery(
 	CMDBM_Connection *conn = NULL;
 	CMUTIL_String *query = NULL;
 	CMUTIL_XmlNode *xqry = NULL;
-	CMUTIL_Bool succ = CMFalse;
+	CMBool succ = CMFalse;
 	if (!db) {
 		CMLogErrorS("unknown datasource id: %s.", dbid);
 		goto ENDPOINT;
@@ -146,11 +146,11 @@ ENDPOINT:
 	return query;
 }
 
-CMDBM_STATIC CMUTIL_Bool CMDBM_SessionExecAfters(
+CMDBM_STATIC CMBool CMDBM_SessionExecAfters(
 		CMDBM_Session *sess, const char *dbid, CMUTIL_JsonObject *params,
 		CMUTIL_List *after, CMUTIL_List *rembuf)
 {
-	CMUTIL_Bool res = CMFalse;
+	CMBool res = CMFalse;
 	CMDBM_Session_Internal *isess = (CMDBM_Session_Internal*)sess;
 	CMDBM_Connection *conn = CMDBM_SessionGetConnection(isess, dbid);
 	CMUTIL_String *dummy = CMUTIL_StringCreate();
@@ -291,12 +291,12 @@ CMDBM_STATIC CMUTIL_JsonArray *CMDBM_SessionGetRowSet(
 	return res;
 }
 
-CMDBM_STATIC CMUTIL_Bool CMDBM_SessionForEachRow(
+CMDBM_STATIC CMBool CMDBM_SessionForEachRow(
 		CMDBM_Session *sess, const char *dbid, const char *sqlid,
 		CMUTIL_JsonObject *params, void *udata,
-        CMUTIL_Bool (*rowcb)(CMUTIL_JsonObject*, uint32_t, void*))
+        CMBool (*rowcb)(CMUTIL_JsonObject*, uint32_t, void*))
 {
-	CMUTIL_Bool res = CMFalse;
+	CMBool res = CMFalse;
 	CMDBM_Session_Internal *isess = (CMDBM_Session_Internal*)sess;
 	CMDBM_Connection *conn = CMDBM_SessionGetConnection(isess, dbid);
 	CMUTIL_JsonObject *outs = NULL;
@@ -313,7 +313,7 @@ CMDBM_STATIC CMUTIL_Bool CMDBM_SessionForEachRow(
 			} else {
                 uint32_t idx = 0;
 				CMUTIL_JsonObject *row = NULL;
-				CMUTIL_Bool cont = CMTrue;
+				CMBool cont = CMTrue;
 				while (cont && ((row = CMCall(csr, GetNext)) != NULL)) {
 					cont = rowcb(row, idx++, udata);
 					CMUTIL_JsonDestroy(row);

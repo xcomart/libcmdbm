@@ -39,13 +39,13 @@ typedef enum {
 	,CMDBM_ETClose
 } CMDBM_ExprType;
 
-typedef CMUTIL_Bool (*CMDBM_TestFunc)(
+typedef CMBool (*CMDBM_TestFunc)(
 		const char *a,
 		const char *b);
-typedef CMUTIL_Bool (*CMDBM_TagFunc)(
+typedef CMBool (*CMDBM_TagFunc)(
 		CMUTIL_Map *queries,
 		CMUTIL_XmlNode *item);
-typedef CMUTIL_Bool (*CMDBM_BuildFunc)(
+typedef CMBool (*CMDBM_BuildFunc)(
 		CMDBM_Session *sess,
 		CMDBM_Connection *db,
 		CMUTIL_XmlNode *node,
@@ -58,11 +58,11 @@ typedef CMUTIL_Bool (*CMDBM_BuildFunc)(
 
 typedef struct CMDBM_CompItem {
 	CMDBM_ExprType	type;
-	CMUTIL_Bool		isnot;
+	CMBool		isnot;
 	CMUTIL_String	*aname;
 	CMUTIL_String	*bname;
-	CMUTIL_Bool		aconst;
-	CMUTIL_Bool		bconst;
+	CMBool		aconst;
+	CMBool		bconst;
 	CMDBM_TestFunc	comparator;
 } CMDBM_CompItem;
 

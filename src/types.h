@@ -49,11 +49,11 @@ struct CMDBM_Connection {
 			CMDBM_Connection *conn);
 	void (*CloseReal)(
 			CMDBM_Connection *conn);
-	CMUTIL_Bool (*BeginTransaction)(
+	CMBool (*BeginTransaction)(
 			CMDBM_Connection *conn);
 	void (*EndTransaction)(
 			CMDBM_Connection *conn);
-	CMUTIL_Bool (*Commit)(
+	CMBool (*Commit)(
 			CMDBM_Connection *conn);
 	void (*Rollback)(
 			CMDBM_Connection *conn);
@@ -65,7 +65,7 @@ CMDBM_Connection *CMDBM_ConnectionCreate(
 
 struct CMDBM_DatabaseEx {
 	CMDBM_Database		base;
-	CMUTIL_Bool (*Initialize)(
+	CMBool (*Initialize)(
 			CMDBM_DatabaseEx *db,
 			CMUTIL_Timer *timer,
 			const char *pgcs);

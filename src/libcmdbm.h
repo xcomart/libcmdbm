@@ -41,13 +41,13 @@ struct CMDBM_ModuleInterface {
 	void (*CloseConnection)(
 			void *initres,
 			void *connection);
-	CMUTIL_Bool (*StartTransaction)(
+	CMBool (*StartTransaction)(
 			void *initres,
 			void *connection);
 	void (*EndTransaction)(
 			void *initres,
 			void *connection);
-	CMUTIL_Bool (*CommitTransaction)(
+	CMBool (*CommitTransaction)(
 			void *initres,
 			void *connection);
 	void (*RollbackTransaction)(
@@ -91,8 +91,8 @@ struct CMDBM_ModuleInterface {
 
 typedef struct CMDBM_PoolConfig {
     uint32_t pingterm;
-	CMUTIL_Bool pingtest;
-	CMUTIL_Bool testonborrow;
+	CMBool pingtest;
+	CMBool testonborrow;
     uint32_t initcnt;
     uint32_t maxcnt;
 	char *testsql;
@@ -111,15 +111,15 @@ typedef enum CMDBM_DBType {
 
 typedef struct CMDBM_Database CMDBM_Database;
 struct CMDBM_Database {
-	CMUTIL_Bool (*AddMapper)(
+	CMBool (*AddMapper)(
 			CMDBM_Database *db,
 			const char *mapperfile);
-	CMUTIL_Bool (*AddMapperSet)(
+	CMBool (*AddMapperSet)(
 			CMDBM_Database *db,
 			const char *basepath,
 			const char *filepattern,
-			CMUTIL_Bool recursive);
-	CMUTIL_Bool (*SetMonitor)(
+			CMBool recursive);
+	CMBool (*SetMonitor)(
 			CMDBM_Database *db,
 			int interval);
 	void (*Destroy)(
@@ -142,7 +142,7 @@ CMDBM_Database *CMDBM_DatabaseCreateCustom(
 
 typedef struct CMDBM_Session CMDBM_Session;
 struct CMDBM_Session {
-	CMUTIL_Bool (*BeginTransaction)(
+	CMBool (*BeginTransaction)(
 			CMDBM_Session		*session);
 	void (*EndTransaction)(
 			CMDBM_Session		*session);
@@ -166,17 +166,17 @@ struct CMDBM_Session {
 			const char			*dbid,
 			const char			*sqlid,
 			CMUTIL_JsonObject	*params);
-	CMUTIL_Bool (*ForEachRow)(
+	CMBool (*ForEachRow)(
 			CMDBM_Session		*session,
 			const char			*dbid,
 			const char			*sqlid,
 			CMUTIL_JsonObject	*params,
 			void				*udata,
-			CMUTIL_Bool			(*rowcb)(
+			CMBool			(*rowcb)(
 				CMUTIL_JsonObject	*row,
                 uint32_t			rownum,
 				void				*udata));
-	CMUTIL_Bool (*Commit)(
+	CMBool (*Commit)(
 			CMDBM_Session		*session);
 	void (*Rollback)(
 			CMDBM_Session		*session);
@@ -186,7 +186,7 @@ struct CMDBM_Session {
 
 typedef struct CMDBM_Context CMDBM_Context;
 struct CMDBM_Context {
-	CMUTIL_Bool (*AddDatabase)(
+	CMBool (*AddDatabase)(
 			CMDBM_Context		*context,
 			CMDBM_Database		*database);
 	CMDBM_Session *(*GetSession)(

@@ -16,10 +16,10 @@ CMUTIL_LogDefine("cmdbm.mapper")
 	CMLogErrorS(fbuf, ## __VA_ARGS__);						\
 } while(0)
 
-CMDBM_STATIC CMUTIL_Bool CMDBM_MapperRebuildItem(
+CMDBM_STATIC CMBool CMDBM_MapperRebuildItem(
 		CMUTIL_Map *queries, CMUTIL_XmlNode *node);
 CMDBM_STATIC const char *CMDBM_MapperGetId(
-        CMUTIL_XmlNode *node, CMUTIL_Bool slient);
+        CMUTIL_XmlNode *node, CMBool slient);
 
 CMDBM_STATIC CMUTIL_XmlNode *CMDBM_MapperXmlCreateText(
         const char *a, size_t len)
@@ -54,14 +54,14 @@ CMDBM_STATIC const char* CMDBM_MapperNextToken(
 		register const char *inp,
 		register char *buf,
 		char *delims,
-		CMUTIL_Bool *isconst,
-		CMUTIL_Bool dlmtoken,
+        CMBool *isconst,
+        CMBool dlmtoken,
 		const char **prev)
 {
 	if (inp && buf && delims) {
 		char delim = 0;
-		CMUTIL_Bool isEscape = CMFalse;
-		CMUTIL_Bool isNumeric = CMFalse;
+        CMBool isEscape = CMFalse;
+        CMBool isNumeric = CMFalse;
 
 		// save previous position
 		if (prev)
@@ -110,12 +110,12 @@ CMDBM_STATIC const char* CMDBM_MapperNextToken(
 	}
 }
 
-CMDBM_STATIC CMUTIL_Bool CMDBM_MapperIsNumeric(const char *a)
+CMDBM_STATIC CMBool CMDBM_MapperIsNumeric(const char *a)
 {
 	return strchr("+-0123456789.", *a)? CMTrue:CMFalse;
 }
 
-CMDBM_STATIC CMUTIL_Bool CMDBM_MapperNumEquals(const char* a, const char* b)
+CMDBM_STATIC CMBool CMDBM_MapperNumEquals(const char* a, const char* b)
 {
 	double af = atof(a);
 	double bf = atof(b);
@@ -124,7 +124,7 @@ CMDBM_STATIC CMUTIL_Bool CMDBM_MapperNumEquals(const char* a, const char* b)
     return fabs(af - bf) < 1e7 ? CMTrue:CMFalse;
 }
 
-CMDBM_STATIC CMUTIL_Bool CMDBM_MapperEqual(const char* a, const char* b)
+CMDBM_STATIC CMBool CMDBM_MapperEqual(const char* a, const char* b)
 {
 	register const char *s = a, *e = b;
 	char delim;
@@ -135,8 +135,8 @@ CMDBM_STATIC CMUTIL_Bool CMDBM_MapperEqual(const char* a, const char* b)
 		return CMFalse;
 
 	if (*e) {
-		CMUTIL_Bool isEscape = CMFalse;
-		CMUTIL_Bool hasQuote = CMFalse;
+        CMBool isEscape = CMFalse;
+        CMBool hasQuote = CMFalse;
 		// check numeric comparison.
 		if (CMDBM_MapperIsNumeric(e))
 			return CMDBM_MapperNumEquals(a, b);
@@ -169,33 +169,33 @@ CMDBM_STATIC CMUTIL_Bool CMDBM_MapperEqual(const char* a, const char* b)
 	}
 }
 
-CMDBM_STATIC CMUTIL_Bool CMDBM_MapperNotEqual(const char *a, const char *b)
+CMDBM_STATIC CMBool CMDBM_MapperNotEqual(const char *a, const char *b)
 {
 	return CMDBM_MapperEqual(a, b)? CMFalse:CMTrue;
 }
 
-CMDBM_STATIC CMUTIL_Bool CMDBM_MapperGreaterThan(const char* a, const char* b)
+CMDBM_STATIC CMBool CMDBM_MapperGreaterThan(const char* a, const char* b)
 {
 	double af = atof(a);
 	double bf = atof(b);
 	return af > bf? CMTrue:CMFalse;
 }
 
-CMDBM_STATIC CMUTIL_Bool CMDBM_MapperLessThan(const char* a, const char* b)
+CMDBM_STATIC CMBool CMDBM_MapperLessThan(const char* a, const char* b)
 {
 	double af = atof(a);
 	double bf = atof(b);
 	return af < bf? CMTrue:CMFalse;
 }
 
-CMDBM_STATIC CMUTIL_Bool CMDBM_MapperGreaterThanOrEqual(
+CMDBM_STATIC CMBool CMDBM_MapperGreaterThanOrEqual(
 		const char* a, const char* b)
 {
 	// this means not less than.
 	return CMDBM_MapperLessThan(a, b)? CMFalse:CMTrue;
 }
 
-CMDBM_STATIC CMUTIL_Bool CMDBM_MapperLessThanOrEqual(
+CMDBM_STATIC CMBool CMDBM_MapperLessThanOrEqual(
 		const char* a, const char* b)
 {
 	// this means not greater than
@@ -204,7 +204,7 @@ CMDBM_STATIC CMUTIL_Bool CMDBM_MapperLessThanOrEqual(
 
 CMDBM_STATIC CMDBM_TestFunc CMDBM_MapperOperatorToFunc(const char *op)
 {
-	CMUTIL_Bool eq, gt, lt, nt;
+    CMBool eq, gt, lt, nt;
     register const char *p = op;
 	eq = gt = lt = nt = CMFalse;
 
@@ -240,7 +240,7 @@ CMDBM_STATIC CMDBM_TestFunc CMDBM_MapperOperatorToFunc(const char *op)
 }
 
 CMDBM_STATIC const char *CMDBM_MapperGetAttr(
-		CMUTIL_XmlNode *node, const char *attr, CMUTIL_Bool silent)
+        CMUTIL_XmlNode *node, const char *attr, CMBool silent)
 {
 	if (node) {
 		CMUTIL_String *sattr = CMCall(node, GetAttribute, attr);
@@ -257,7 +257,7 @@ CMDBM_STATIC const char *CMDBM_MapperGetAttr(
 }
 
 CMDBM_STATIC const char *CMDBM_MapperGetId(
-        CMUTIL_XmlNode *node, CMUTIL_Bool slient)
+        CMUTIL_XmlNode *node, CMBool slient)
 {
 	CMUTIL_String *id = CMCall(node, GetAttribute, "CMDBM_IDRebuilt");
 	if (id == NULL) {
@@ -317,7 +317,7 @@ CMDBM_NodeType CMDBM_MapperGetNodeType(CMUTIL_XmlNode *node)
 	return res;
 }
 
-CMDBM_STATIC CMUTIL_Bool CMDBM_MapperItemAddProc(
+CMDBM_STATIC CMBool CMDBM_MapperItemAddProc(
 		CMUTIL_Map *queries,
 		CMUTIL_XmlNode *node,
 		CMDBM_NodeType type)
@@ -334,35 +334,35 @@ CMDBM_STATIC CMUTIL_Bool CMDBM_MapperItemAddProc(
 	}
 }
 
-CMDBM_STATIC CMUTIL_Bool CMDBM_MapperItemSqlMap(
+CMDBM_STATIC CMBool CMDBM_MapperItemSqlMap(
 		CMUTIL_Map *queries, CMUTIL_XmlNode *node)
 {
 	CMDBM_MapperItemProc(queries, node, CMDBM_NTSqlMap);
 	return CMTrue;
 }
 
-CMDBM_STATIC CMUTIL_Bool CMDBM_MapperItemSql(
+CMDBM_STATIC CMBool CMDBM_MapperItemSql(
 		CMUTIL_Map *queries, CMUTIL_XmlNode *node)
 {
 	return CMDBM_MapperItemAddProc(queries, node, CMDBM_NTSqlFrag);
 }
 
-CMDBM_STATIC CMUTIL_Bool CMDBM_MapperItemSelect(
+CMDBM_STATIC CMBool CMDBM_MapperItemSelect(
 		CMUTIL_Map *queries, CMUTIL_XmlNode *node)
 {
 	return CMDBM_MapperItemAddProc(queries, node, CMDBM_NTSqlSelect);
 }
 
-CMDBM_STATIC CMUTIL_Bool CMDBM_MapperItemUpdate(
+CMDBM_STATIC CMBool CMDBM_MapperItemUpdate(
 		CMUTIL_Map *queries, CMUTIL_XmlNode *node)
 {
 	return CMDBM_MapperItemAddProc(queries, node, CMDBM_NTSqlUpdate);
 }
 
-CMDBM_STATIC CMUTIL_Bool CMDBM_MapperItemInclude(
+CMDBM_STATIC CMBool CMDBM_MapperItemInclude(
 		CMUTIL_Map *queries, CMUTIL_XmlNode *node)
 {
-	CMUTIL_Bool res = CMFalse;
+    CMBool res = CMFalse;
 	CMUTIL_String *refid = NULL;
 
 	CMDBM_MapperItemProc(NULL, node, CMDBM_NTSqlInclude);
@@ -386,28 +386,28 @@ CMDBM_STATIC CMUTIL_Bool CMDBM_MapperItemInclude(
 	return res;
 }
 
-CMDBM_STATIC CMUTIL_Bool CMDBM_MapperItemBind(
+CMDBM_STATIC CMBool CMDBM_MapperItemBind(
 		CMUTIL_Map *queries, CMUTIL_XmlNode *node)
 {
 	CMDBM_MapperItemProc(queries, node, CMDBM_NTSqlParamSet);
 	return CMTrue;
 }
 
-CMDBM_STATIC CMUTIL_Bool CMDBM_MapperItemTrim(
+CMDBM_STATIC CMBool CMDBM_MapperItemTrim(
 		CMUTIL_Map *queries, CMUTIL_XmlNode *node)
 {
 	CMDBM_MapperItemProc(queries, node, CMDBM_NTSqlTrim);
 	return CMTrue;
 }
 
-CMDBM_STATIC CMUTIL_Bool CMDBM_MapperItemForeach(
+CMDBM_STATIC CMBool CMDBM_MapperItemForeach(
 		CMUTIL_Map *queries, CMUTIL_XmlNode *node)
 {
 	CMDBM_MapperItemProc(queries, node, CMDBM_NTSqlForeach);
 	return CMTrue;
 }
 
-CMDBM_STATIC CMUTIL_Bool CMDBM_MapperItemTrimLike(
+CMDBM_STATIC CMBool CMDBM_MapperItemTrimLike(
 		CMUTIL_Map *queries,
 		CMUTIL_XmlNode *node,
 		const char *prfx,
@@ -425,28 +425,28 @@ CMDBM_STATIC CMUTIL_Bool CMDBM_MapperItemTrimLike(
 	return CMTrue;
 }
 
-CMDBM_STATIC CMUTIL_Bool CMDBM_MapperItemWhere(
+CMDBM_STATIC CMBool CMDBM_MapperItemWhere(
 		CMUTIL_Map *queries, CMUTIL_XmlNode *node)
 {
 	return CMDBM_MapperItemTrimLike(
 			queries, node, "WHERE ", "AND|OR", "AND|OR");
 }
 
-CMDBM_STATIC CMUTIL_Bool CMDBM_MapperItemSet(
+CMDBM_STATIC CMBool CMDBM_MapperItemSet(
 		CMUTIL_Map *queries, CMUTIL_XmlNode *node)
 {
 	return CMDBM_MapperItemTrimLike(
 			queries, node, "SET ", ",", ",");
 }
 
-CMDBM_STATIC CMUTIL_Bool CMDBM_MapperItemChoose(
+CMDBM_STATIC CMBool CMDBM_MapperItemChoose(
 		CMUTIL_Map *queries, CMUTIL_XmlNode *node)
 {
 	CMDBM_MapperItemProc(queries, node, CMDBM_NTSqlChoose);
 	return CMTrue;
 }
 
-CMDBM_STATIC CMUTIL_Bool CMDBM_MapperItemOtherwise(
+CMDBM_STATIC CMBool CMDBM_MapperItemOtherwise(
 		CMUTIL_Map *queries, CMUTIL_XmlNode *node)
 {
 	CMDBM_MapperItemProc(queries, node, CMDBM_NTSqlOtherwise);
@@ -458,7 +458,7 @@ CMDBM_STATIC void CMDBM_CompListDestroyer(void *a)
 	CMCall((CMUTIL_List*)a, Destroy);
 }
 
-CMDBM_STATIC CMUTIL_Bool CMDBM_MapperItemIf(
+CMDBM_STATIC CMBool CMDBM_MapperItemIf(
 		CMUTIL_Map *queries, CMUTIL_XmlNode *node)
 {
 	if (node) {
@@ -476,7 +476,7 @@ CMDBM_STATIC CMUTIL_Bool CMDBM_MapperItemIf(
 		// parse tests
 		while (CMTrue) {
 			CMDBM_CompItem *item = CMAlloc(sizeof(CMDBM_CompItem));
-			CMUTIL_Bool isconst = CMFalse;
+            CMBool isconst = CMFalse;
 			const char *prev = NULL;
 
 			memset(item, 0x0, sizeof(CMDBM_CompItem));
@@ -557,7 +557,7 @@ FAILEDPOSITION:
 	}
 }
 
-CMDBM_STATIC CMUTIL_Bool CMDBM_MapperItemSelectKey(
+CMDBM_STATIC CMBool CMDBM_MapperItemSelectKey(
 		CMUTIL_Map *queries, CMUTIL_XmlNode *node)
 {
 	CMDBM_MapperItemProc(queries, node, CMDBM_NTSqlSelectKey);
@@ -597,7 +597,7 @@ void CMDBM_MapperClear()
 	g_cmdbm_mapper_tagfuncs = NULL;
 }
 
-CMDBM_STATIC CMUTIL_Bool CMDBM_MapperRebuildChildren(
+CMDBM_STATIC CMBool CMDBM_MapperRebuildChildren(
 		CMUTIL_Map *queries, CMUTIL_XmlNode *node)
 {
 	if (queries && node) {
@@ -612,10 +612,10 @@ CMDBM_STATIC CMUTIL_Bool CMDBM_MapperRebuildChildren(
 	return CMFalse;
 }
 
-CMDBM_STATIC CMUTIL_Bool CMDBM_MapperRebuildTag(
+CMDBM_STATIC CMBool CMDBM_MapperRebuildTag(
 		CMUTIL_Map *queries, CMUTIL_XmlNode *node)
 {
-	CMUTIL_Bool res = CMFalse;
+    CMBool res = CMFalse;
 	const char *tname = CMCall(node, GetName);
 	CMDBM_TagFunc tf = (CMDBM_TagFunc)CMCall(
 				g_cmdbm_mapper_tagfuncs, Get, tname);
@@ -628,7 +628,7 @@ CMDBM_STATIC CMUTIL_Bool CMDBM_MapperRebuildTag(
 	return res;
 }
 
-CMDBM_STATIC CMUTIL_Bool CMDBM_MapperRebuildText(
+CMDBM_STATIC CMBool CMDBM_MapperRebuildText(
 		CMUTIL_Map *queries, CMUTIL_XmlNode *node)
 {
 	// process text node
@@ -709,7 +709,7 @@ CMDBM_STATIC CMUTIL_Bool CMDBM_MapperRebuildText(
 	return CMTrue;
 }
 
-CMUTIL_Bool CMDBM_MapperRebuildItem(CMUTIL_Map *queries, CMUTIL_XmlNode *node)
+CMBool CMDBM_MapperRebuildItem(CMUTIL_Map *queries, CMUTIL_XmlNode *node)
 {
 	CMDBM_NodeType ntype = CMDBM_MapperGetNodeType(node);
     if (ntype == CMDBM_NTXmlTag) {
