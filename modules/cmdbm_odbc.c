@@ -566,7 +566,7 @@ CMDBM_STATIC SQLHSTMT CMDBM_ODBC_SelectBase(
 
             CMDBM_ODBC_BindField *col = NULL;
             TRYODBC(stmt, SQL_HANDLE_STMT, SQLDescribeCol (
-                                stmt,               // Select Statement (Prepared)
+                                stmt,               // Prepared Statement
                                 (SQLUSMALLINT)i+1,  // Columnn Number
                                 name,               // Column Name (returned)
                                 2048,               // size of Column Name buffer
