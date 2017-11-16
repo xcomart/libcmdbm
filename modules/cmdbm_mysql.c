@@ -124,7 +124,7 @@ CMDBM_STATIC void CMDBM_MySQL_CloseConnection(
 	CMUTIL_UNUSED(initres);
 }
 
-CMDBM_STATIC CMUTIL_Bool CMDBM_MySQL_StartTransaction(
+CMDBM_STATIC CMBool CMDBM_MySQL_StartTransaction(
 		void *initres, void *connection)
 {
 	CMDBM_MySQLSession *sess = (CMDBM_MySQLSession*)connection;
@@ -150,7 +150,7 @@ CMDBM_STATIC void CMDBM_MySQL_EndTransaction(
 	CMUTIL_UNUSED(initres);
 }
 
-CMDBM_STATIC CMUTIL_Bool CMDBM_MySQL_CommitTransaction(
+CMDBM_STATIC CMBool CMDBM_MySQL_CommitTransaction(
 		void *initres, void *connection)
 {
 	CMDBM_MySQLSession *sess = (CMDBM_MySQLSession*)connection;
@@ -249,7 +249,7 @@ CMDBM_STATIC void CMDBM_MySQL_SetOutValue(
 		CMUTIL_String *temp;
 		switch (bind->buffer_type) {
 		case MYSQL_TYPE_TINY:
-            CMCall(jval, SetBoolean, (CMUTIL_Bool)*((char*)bind->buffer));
+            CMCall(jval, SetBoolean, (CMBool)*((char*)bind->buffer));
 			break;
 		case MYSQL_TYPE_LONGLONG:
             CMCall(jval, SetLong, (int64_t)*((int64_t*)bind->buffer));
@@ -273,7 +273,7 @@ CMDBM_STATIC MYSQL_STMT *CMDBM_MySQL_ExecuteBase(
 {
     uint32_t i;
     size_t bsize = 0;
-    CMUTIL_Bool succ = CMFalse;
+    CMBool succ = CMFalse;
 	MYSQL_STMT *stmt = mysql_stmt_init(sess->conn);
 	MYSQL_BIND *buffers = NULL;
 	CMUTIL_Array *array = NULL;
@@ -405,7 +405,7 @@ CMDBM_STATIC void CMDBM_MySQL_ResultAssignString(
 CMDBM_STATIC void CMDBM_MySQL_ResultAssignBoolean(
 		CMDBM_MySQL_FieldInfo *finfo, MYSQL_STMT *stmt, CMUTIL_JsonObject *row)
 {
-    CMUTIL_Bool bval = finfo->longVal? CMTrue:CMFalse;
+    CMBool bval = finfo->longVal? CMTrue:CMFalse;
 	CMUTIL_UNUSED(stmt);
     CMCall(row, PutBoolean, finfo->name, bval);
 }
@@ -419,7 +419,7 @@ CMDBM_STATIC MYSQL_STMT *CMDBM_MySQL_SelectBase(
 	if (stmt) {
 		int i, fieldcnt;
 		MYSQL_FIELD *ofields = NULL;
-        CMUTIL_Bool succ = CMFalse;
+        CMBool succ = CMFalse;
 
 		if (mysql_stmt_store_result(stmt) != 0) {
 			MYSQL_LOGERROR(sess, "execute statement failed.");
@@ -547,7 +547,7 @@ CMDBM_STATIC CMUTIL_JsonObject *CMDBM_MySQL_GetRow(
 	MYSQL_STMT *stmt = CMDBM_MySQL_SelectBase(
 				sess, query, binds, outs, fields, &meta, &resb);
 	CMUTIL_JsonObject *res = NULL;
-    CMUTIL_Bool succ = CMFalse;
+    CMBool succ = CMFalse;
 
 	if (stmt) {
 		if (mysql_stmt_fetch(stmt) != 0) {
@@ -612,7 +612,7 @@ CMDBM_STATIC CMUTIL_JsonArray *CMDBM_MySQL_GetList(
 	MYSQL_STMT *stmt = CMDBM_MySQL_SelectBase(
 				sess, query, binds, outs, fields, &meta, &resb);
 	CMUTIL_JsonArray *res = CMUTIL_JsonArrayCreate();
-    CMUTIL_Bool succ = CMFalse;
+    CMBool succ = CMFalse;
 
 	if (stmt) {
 		int rcnt = 0, rval;

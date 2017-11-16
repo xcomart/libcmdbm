@@ -23,10 +23,10 @@ CMDBM_STATIC const char* CMDBM_CaseStarts(
 	return (!*n)? p:NULL;
 }
 
-CMDBM_STATIC CMUTIL_Bool CMDBM_TestExpr(CMDBM_Session *sess,
-		CMUTIL_JsonObject *params, CMUTIL_Iterator *iter, CMUTIL_Bool isOpen)
+CMDBM_STATIC CMBool CMDBM_TestExpr(CMDBM_Session *sess,
+        CMUTIL_JsonObject *params, CMUTIL_Iterator *iter, CMBool isOpen)
 {
-	CMUTIL_Bool res = CMFalse;
+    CMBool res = CMFalse;
 	while (CMCall(iter, HasNext)) {
 		CMDBM_CompItem *c = (CMDBM_CompItem*)CMCall(iter, Next);
 		if (c->type == CMDBM_ETOpen) {
@@ -74,7 +74,7 @@ CMDBM_STATIC CMUTIL_Bool CMDBM_TestExpr(CMDBM_Session *sess,
 	return res;
 }
 
-CMUTIL_Bool CMDBM_BuildNode(
+CMBool CMDBM_BuildNode(
 		CMDBM_Session *sess,
 		CMDBM_Connection *conn,
 		CMUTIL_XmlNode *node,
@@ -85,7 +85,7 @@ CMUTIL_Bool CMDBM_BuildNode(
 		CMUTIL_JsonObject *outs,
 		CMUTIL_List *rembuf);
 
-CMDBM_STATIC CMUTIL_Bool CMDBM_BuildChildren(
+CMDBM_STATIC CMBool CMDBM_BuildChildren(
 		CMDBM_Session *sess,
 		CMDBM_Connection *conn,
 		CMUTIL_XmlNode *node,
@@ -108,7 +108,7 @@ CMDBM_STATIC CMUTIL_Bool CMDBM_BuildChildren(
 	return CMTrue;
 }
 
-CMDBM_STATIC CMUTIL_Bool CMDBM_BuildText(
+CMDBM_STATIC CMBool CMDBM_BuildText(
 		CMDBM_Session *sess,
 		CMDBM_Connection *conn,
 		CMUTIL_XmlNode *node,
@@ -125,7 +125,7 @@ CMDBM_STATIC CMUTIL_Bool CMDBM_BuildText(
 	return CMTrue;
 }
 
-CMDBM_STATIC CMUTIL_Bool CMDBM_BuildParamSet(
+CMDBM_STATIC CMBool CMDBM_BuildParamSet(
 		CMDBM_Session *sess,
 		CMDBM_Connection *conn,
 		CMUTIL_XmlNode *node,
@@ -164,7 +164,7 @@ CMDBM_STATIC CMUTIL_Bool CMDBM_BuildParamSet(
 	return CMFalse;
 }
 
-CMDBM_STATIC CMUTIL_Bool CMDBM_BuildOutParam(
+CMDBM_STATIC CMBool CMDBM_BuildOutParam(
 		CMDBM_Session *sess,
 		CMDBM_Connection *conn,
 		CMUTIL_XmlNode *node,
@@ -193,7 +193,7 @@ CMDBM_STATIC CMUTIL_Bool CMDBM_BuildOutParam(
 	return CMTrue;
 }
 
-CMDBM_STATIC CMUTIL_Bool CMDBM_BuildReplace(
+CMDBM_STATIC CMBool CMDBM_BuildReplace(
 		CMDBM_Session *sess,
 		CMDBM_Connection *conn,
 		CMUTIL_XmlNode *node,
@@ -218,7 +218,7 @@ CMDBM_STATIC CMUTIL_Bool CMDBM_BuildReplace(
 	}
 }
 
-CMDBM_STATIC CMUTIL_Bool CMDBM_BuildInclude(
+CMDBM_STATIC CMBool CMDBM_BuildInclude(
 		CMDBM_Session *sess,
 		CMDBM_Connection *conn,
 		CMUTIL_XmlNode *node,
@@ -246,7 +246,7 @@ CMDBM_STATIC CMUTIL_Bool CMDBM_BuildInclude(
 	return CMFalse;
 }
 
-CMDBM_STATIC CMUTIL_Bool CMDBM_BuildBind(
+CMDBM_STATIC CMBool CMDBM_BuildBind(
 		CMDBM_Session *sess,
 		CMDBM_Connection *conn,
 		CMUTIL_XmlNode *node,
@@ -273,7 +273,7 @@ CMDBM_STATIC CMUTIL_Bool CMDBM_BuildBind(
 	}
 }
 
-CMDBM_STATIC CMUTIL_Bool CMDBM_BuildTrim(
+CMDBM_STATIC CMBool CMDBM_BuildTrim(
 		CMDBM_Session *sess,
 		CMDBM_Connection *conn,
 		CMUTIL_XmlNode *node,
@@ -284,7 +284,7 @@ CMDBM_STATIC CMUTIL_Bool CMDBM_BuildTrim(
 		CMUTIL_JsonObject *outs,
 		CMUTIL_List *rembuf)
 {
-	CMUTIL_Bool res = CMFalse;
+    CMBool res = CMFalse;
 	CMUTIL_String *sbuf = CMUTIL_StringCreate();
 
 	if (CMDBM_BuildChildren(sess, conn, node, params, bindings,
@@ -363,7 +363,7 @@ CMDBM_STATIC CMUTIL_Bool CMDBM_BuildTrim(
 	return res;
 }
 
-CMDBM_STATIC CMUTIL_Bool CMDBM_BuildForeach(
+CMDBM_STATIC CMBool CMDBM_BuildForeach(
 		CMDBM_Session *sess,
 		CMDBM_Connection *conn,
 		CMUTIL_XmlNode *node,
@@ -446,7 +446,7 @@ CMDBM_STATIC CMUTIL_Bool CMDBM_BuildForeach(
 	return CMTrue;
 }
 
-CMDBM_STATIC CMUTIL_Bool CMDBM_BuildIfBase(
+CMDBM_STATIC CMBool CMDBM_BuildIfBase(
 		CMDBM_Session *sess,
 		CMDBM_Connection *conn,
 		CMUTIL_XmlNode *node,
@@ -456,9 +456,9 @@ CMDBM_STATIC CMUTIL_Bool CMDBM_BuildIfBase(
 		CMUTIL_String *obuf,
 		CMUTIL_JsonObject *outs,
 		CMUTIL_List *rembuf,
-		CMUTIL_Bool *isAdded)
+        CMBool *isAdded)
 {
-	CMUTIL_Bool res = CMFalse;
+    CMBool res = CMFalse;
 	CMUTIL_List *data = CMCall(node, GetUserData);
 	CMUTIL_Iterator *iter = CMCall(data, Iterator);
 	if (CMDBM_TestExpr(sess, params, iter, CMFalse)) {
@@ -474,7 +474,7 @@ CMDBM_STATIC CMUTIL_Bool CMDBM_BuildIfBase(
 	return res;
 }
 
-CMDBM_STATIC CMUTIL_Bool CMDBM_BuildChoose(
+CMDBM_STATIC CMBool CMDBM_BuildChoose(
 		CMDBM_Session *sess,
 		CMDBM_Connection *conn,
 		CMUTIL_XmlNode *node,
@@ -485,7 +485,7 @@ CMDBM_STATIC CMUTIL_Bool CMDBM_BuildChoose(
 		CMUTIL_JsonObject *outs,
 		CMUTIL_List *rembuf)
 {
-	CMUTIL_Bool isApplied = CMFalse;
+    CMBool isApplied = CMFalse;
     uint32_t i;
     size_t size = CMCall(node, ChildCount);
 
@@ -518,7 +518,7 @@ CMDBM_STATIC CMUTIL_Bool CMDBM_BuildChoose(
 	return CMTrue;
 }
 
-CMDBM_STATIC CMUTIL_Bool CMDBM_BuildIf(
+CMDBM_STATIC CMBool CMDBM_BuildIf(
 		CMDBM_Session *sess,
 		CMDBM_Connection *conn,
 		CMUTIL_XmlNode *node,
@@ -533,7 +533,7 @@ CMDBM_STATIC CMUTIL_Bool CMDBM_BuildIf(
 							 after, obuf, outs, rembuf, NULL);
 }
 
-CMDBM_STATIC CMUTIL_Bool CMDBM_BuildSelectKey(
+CMDBM_STATIC CMBool CMDBM_BuildSelectKey(
 		CMDBM_Session *sess,
 		CMDBM_Connection *conn,
 		CMUTIL_XmlNode *node,
@@ -544,11 +544,11 @@ CMDBM_STATIC CMUTIL_Bool CMDBM_BuildSelectKey(
 		CMUTIL_JsonObject *outs,
 		CMUTIL_List *rembuf)
 {
-	CMUTIL_Bool res = CMFalse;
+    CMBool res = CMFalse;
 	const char *key, *order;
 	CMUTIL_String *sbuf = CMUTIL_StringCreate();
 	CMUTIL_JsonArray *nbinds = CMUTIL_JsonArrayCreate();
-	CMUTIL_Bool beval = CMFalse;
+    CMBool beval = CMFalse;
 	CMUTIL_String *stmp;
 
 	CMUTIL_UNUSED(bindings, obuf);
@@ -618,7 +618,7 @@ static CMDBM_BuildFunc g_cmdbm_buildfuncs[] = {
 		,CMDBM_BuildSelectKey	//nodeSqlSelectKey
 };
 
-CMUTIL_Bool CMDBM_BuildNode(
+CMBool CMDBM_BuildNode(
 		CMDBM_Session *sess,
 		CMDBM_Connection *conn,
 		CMUTIL_XmlNode *node,

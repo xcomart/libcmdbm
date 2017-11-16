@@ -16,10 +16,10 @@ typedef struct CMDBM_Context_Internal {
     char                *progcs;        // program character set
 	CMUTIL_Map			*poolconfs;
     CMUTIL_Map			*libctx;
-    CMUTIL_Bool         istimerinternal;
-    CMUTIL_Bool			logqueryid;
-	CMUTIL_Bool			logquery;
-	CMUTIL_Bool			logresult;
+    CMBool         istimerinternal;
+    CMBool			logqueryid;
+	CMBool			logquery;
+	CMBool			logresult;
 } CMDBM_Context_Internal;
 
 CMDBM_STATIC void CMDBM_ContextDatabaseDestroyer(void *data)
@@ -80,11 +80,11 @@ CMDBM_STATIC void CMDBM_ContextConfigClean(CMUTIL_Json *json)
 	}
 }
 
-CMDBM_STATIC CMUTIL_Bool CMDBM_ContextParsePoolConfig(
+CMDBM_STATIC CMBool CMDBM_ContextParsePoolConfig(
 		CMDBM_Context *context,
 		CMUTIL_JsonObject *pcfg)
 {
-	CMUTIL_Bool res = CMFalse;
+	CMBool res = CMFalse;
 	CMDBM_Context_Internal *ictx = (CMDBM_Context_Internal*)context;
 	CMUTIL_JsonValue *id =
 			(CMUTIL_JsonValue*)CMCall(pcfg, Get, "id");
@@ -121,11 +121,11 @@ CMDBM_STATIC CMUTIL_Bool CMDBM_ContextParsePoolConfig(
 	return res;
 }
 
-CMDBM_STATIC CMUTIL_Bool CMDBM_ContextParseMappers(
+CMDBM_STATIC CMBool CMDBM_ContextParseMappers(
 		CMDBM_Database *db, CMUTIL_JsonArray *mappers)
 {
     uint32_t i;
-	CMUTIL_Bool res = CMTrue;
+	CMBool res = CMTrue;
 	for (i=0; res && i<CMCall(mappers, GetSize); i++) {
 		CMUTIL_JsonObject *mcfg =
 				(CMUTIL_JsonObject*)CMCall(mappers, Get, i);
@@ -134,7 +134,7 @@ CMDBM_STATIC CMUTIL_Bool CMDBM_ContextParseMappers(
 			// add mapper set
 			const char *bpath = CMCall(mcfg, GetCString, "basepath");
 			const char *fpattern = CMCall(mcfg, GetCString, "filepattern");
-			CMUTIL_Bool recur = CMCall(mcfg, GetBoolean, "recursive");
+			CMBool recur = CMCall(mcfg, GetBoolean, "recursive");
 			res = CMCall(db, AddMapperSet, bpath, fpattern, recur);
 		} else if (strcasecmp(stype, "mapper") == 0) {
 			// add mapper
@@ -148,12 +148,12 @@ CMDBM_STATIC CMUTIL_Bool CMDBM_ContextParseMappers(
 	return res;
 }
 
-CMDBM_STATIC CMUTIL_Bool CMDBM_ContextParseDatabase(
+CMDBM_STATIC CMBool CMDBM_ContextParseDatabase(
 		CMDBM_Context *context,
 		const char *sdbtype,
 		CMUTIL_JsonObject *dcfg)
 {
-	CMUTIL_Bool res = CMFalse;
+	CMBool res = CMFalse;
 	CMDBM_Context_Internal *ictx = (CMDBM_Context_Internal*)context;
 	CMUTIL_JsonObject *pcfg =
 			(CMUTIL_JsonObject*)CMCall(dcfg, Get, "pool");
@@ -271,12 +271,12 @@ ENDPOINT:
 	return res;
 }
 
-CMDBM_STATIC CMUTIL_Bool CMDBM_ContextParseConfig(
+CMDBM_STATIC CMBool CMDBM_ContextParseConfig(
 		CMDBM_Context *context,
 		CMUTIL_Json *config)
 {
     uint32_t i;
-	CMUTIL_Bool res = CMFalse;
+	CMBool res = CMFalse;
 	CMUTIL_Json *item = NULL;
 	CMUTIL_JsonArray *jarr = NULL;
 	CMUTIL_JsonObject *jconf = NULL;
@@ -358,13 +358,13 @@ ENDPOINT:
 	return res;
 }
 
-CMDBM_STATIC CMUTIL_Bool CMDBM_ContextInitialize(
+CMDBM_STATIC CMBool CMDBM_ContextInitialize(
 		CMDBM_Context_Internal *ictx,
 		const char *confjson,
         const char *progcharset,
         CMUTIL_Timer *timer)
 {
-	CMUTIL_Bool res = CMFalse;
+	CMBool res = CMFalse;
 	CMUTIL_Json *conf = NULL;
 
 	if (confjson) {
@@ -398,10 +398,10 @@ ENDPOINT:
 	return res;
 }
 
-CMDBM_STATIC CMUTIL_Bool CMDBM_ContextAddDatabase(
+CMDBM_STATIC CMBool CMDBM_ContextAddDatabase(
 		CMDBM_Context *ctx, CMDBM_Database *db)
 {
-	CMUTIL_Bool res = CMFalse;
+	CMBool res = CMFalse;
 	CMDBM_Context_Internal *ictx = (CMDBM_Context_Internal*)ctx;
 	CMDBM_DatabaseEx *edb = (CMDBM_DatabaseEx*)db;
 	const char *dbid = NULL;

@@ -9,7 +9,7 @@ typedef struct CMDBM_MapperFile {
 	char					*fpath;
 	CMUTIL_StringArray		*mapperids;
 	CMUTIL_Map				*queries;
-    CMUTIL_Bool				isinset;
+    CMBool				isinset;
     int                     dummy_padder;
 } CMDBM_MapperFile;
 
@@ -18,7 +18,7 @@ typedef struct CMDBM_MapperFileSet {
 	char					*dpath;
 	char					*fpattern;
 	CMUTIL_Map				*queries;
-	CMUTIL_Bool				recursive;
+	CMBool				recursive;
     int                     dummy_padder;
 } CMDBM_MapperFileSet;
 
@@ -76,7 +76,7 @@ CMDBM_STATIC void CMDBM_MapperFileDestroy(void *data)
 
 CMDBM_STATIC CMDBM_MapperFile *CMDBM_MapperFileCreate(
 		const char *fpath, CMUTIL_XmlNode *node,
-		CMUTIL_Bool isinset, CMUTIL_Map *queries)
+		CMBool isinset, CMUTIL_Map *queries)
 {
 	CMDBM_MapperFile *res = NULL;
 	CMUTIL_File *file = CMUTIL_FileCreate(fpath);
@@ -110,11 +110,11 @@ CMDBM_STATIC void CMDBM_DatabaseRemoveFile(
 	}
 }
 
-CMDBM_STATIC CMUTIL_Bool CMDBM_DatabaseAddMapper(
+CMDBM_STATIC CMBool CMDBM_DatabaseAddMapper(
 		CMDBM_Database *db, const char *mapperfile)
 {
 	CMDBM_Database_Internal *idb = (CMDBM_Database_Internal*)db;
-	CMUTIL_Bool res = CMFalse;
+	CMBool res = CMFalse;
 	CMUTIL_XmlNode *mapper = CMUTIL_XmlParseFile(mapperfile);
 	if (mapper) {
 		CMUTIL_Map *queries = CMUTIL_MapCreate();
@@ -164,7 +164,7 @@ CMDBM_STATIC void CMDBM_MapperFileSetDestroy(void *data)
 }
 
 CMDBM_STATIC CMDBM_MapperFileSet *CMDBM_DatabaseBuidlMapperSet(
-		const char *dpath, const char  *fpattern, CMUTIL_Bool recursive)
+		const char *dpath, const char  *fpattern, CMBool recursive)
 {
     uint32_t i;
 	CMUTIL_File *dfile = CMUTIL_FileCreate(dpath);
@@ -178,7 +178,7 @@ CMDBM_STATIC CMDBM_MapperFileSet *CMDBM_DatabaseBuidlMapperSet(
 				10, CMDBM_DatabaseMapperComp, CMDBM_MapperFileDestroy);
 	mset->queries = CMUTIL_MapCreate();
 	for (i=0; i<CMCall(flist, Count); i++) {
-		CMUTIL_Bool succ = CMFalse;
+		CMBool succ = CMFalse;
 		CMUTIL_File *cur = CMCall(flist, GetAt, i);
 		const char *fpath = CMCall(cur, GetFullPath);
 		CMUTIL_XmlNode *mapper = CMUTIL_XmlParseFile(fpath);
@@ -234,12 +234,12 @@ CMDBM_STATIC void CMDBM_DatabaseRemoveMapperSet(
 	}
 }
 
-CMDBM_STATIC CMUTIL_Bool CMDBM_DatabaseAddMapperSet(
+CMDBM_STATIC CMBool CMDBM_DatabaseAddMapperSet(
         CMDBM_Database *db, const char *dpath, const char *fpattern,
-        CMUTIL_Bool recursive)
+        CMBool recursive)
 {
     char key[1024];
-    CMUTIL_Bool res = CMTrue;
+    CMBool res = CMTrue;
 	CMDBM_Database_Internal *idb = (CMDBM_Database_Internal*)db;
 	CMDBM_MapperFileSet *mset = CMDBM_DatabaseBuidlMapperSet(
 				dpath, fpattern, recursive);
@@ -251,7 +251,7 @@ CMDBM_STATIC CMUTIL_Bool CMDBM_DatabaseAddMapperSet(
     return res;
 }
 
-CMDBM_STATIC CMUTIL_Bool CMDBM_DatabaseSetMonitor(
+CMDBM_STATIC CMBool CMDBM_DatabaseSetMonitor(
 		CMDBM_Database *db, int interval)
 {
 	CMDBM_Database_Internal *idb = (CMDBM_Database_Internal*)db;
@@ -279,7 +279,7 @@ CMDBM_STATIC void CMDBM_DatabasePoolDestroyProc(void *resource, void *data)
 	CMUTIL_UNUSED(data);
 }
 
-CMDBM_STATIC CMUTIL_Bool CMDBM_DatabasePoolTestProc(
+CMDBM_STATIC CMBool CMDBM_DatabasePoolTestProc(
 		void *resource, void *data)
 {
 	CMDBM_Database_Internal *idb = (CMDBM_Database_Internal*)data;
@@ -349,7 +349,7 @@ CMDBM_STATIC void CMDBM_DatabaseMapperReloader(void *data)
 		CMUTIL_File *dir = CMUTIL_FileCreate(mset->dpath);
 		CMUTIL_FileList *flist =
 				CMCall(dir, Find, mset->fpattern, mset->recursive);
-		CMUTIL_Bool ischanged = CMFalse;
+		CMBool ischanged = CMFalse;
 
 		// compare file lists
 		for (i=0; !ischanged && i<CMCall(flist, Count); i++) {
@@ -399,7 +399,7 @@ CMDBM_STATIC void CMDBM_DatabaseMapperReloader(void *data)
 	CMCall(toberem, Destroy);
 }
 
-CMDBM_STATIC CMUTIL_Bool CMDBM_DatabaseInitialize(
+CMDBM_STATIC CMBool CMDBM_DatabaseInitialize(
 		CMDBM_DatabaseEx *db, CMUTIL_Timer *timer, const char *pgcs)
 {
 	long interval;

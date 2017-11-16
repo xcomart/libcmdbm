@@ -21,7 +21,7 @@ typedef struct CMDBM_OracleCtx {
 	OCIEnv			*envhp;
 	CMUTIL_Mutex	*convmtx;
 	CMUTIL_CSConv	*conv;
-	CMUTIL_Bool		needconv;
+    CMBool		needconv;
     int             dummy_padder;
 } CMDBM_OracleCtx;
 
@@ -32,7 +32,7 @@ typedef struct CMDBM_OracleSession {
 	OCIServer		*srvhp;
 	OCISvcCtx		*svchp;
 	OCISession		*authp;
-	CMUTIL_Bool		autocommit;
+    CMBool		autocommit;
     int             dummy_padder;
 } CMDBM_OracleSession;
 
@@ -165,7 +165,7 @@ CMDBM_STATIC void CMDBM_Oracle_CloseConnection(
 CMDBM_STATIC void *CMDBM_Oracle_OpenConnection(
 		void *initres, CMUTIL_JsonObject *params)
 {
-	CMUTIL_Bool succ = CMFalse;
+    CMBool succ = CMFalse;
 	CMUTIL_JsonValue *user =
             (CMUTIL_JsonValue*)CMCall(params, GetString, "user");
 	CMUTIL_JsonValue *pass =
@@ -227,7 +227,7 @@ ENDPOINT:
 	return res;
 }
 
-CMDBM_STATIC CMUTIL_Bool CMDBM_Oracle_StartTransaction(
+CMDBM_STATIC CMBool CMDBM_Oracle_StartTransaction(
 		void *initres, void *connection)
 {
 	CMDBM_OracleSession *conn = (CMDBM_OracleSession*)connection;
@@ -244,10 +244,10 @@ CMDBM_STATIC void CMDBM_Oracle_EndTransaction(
 	CMUTIL_UNUSED(initres);
 }
 
-CMDBM_STATIC CMUTIL_Bool CMDBM_Oracle_CommitTransaction(
+CMDBM_STATIC CMBool CMDBM_Oracle_CommitTransaction(
 		void *initres, void *connection)
 {
-	CMUTIL_Bool res = CMFalse;
+    CMBool res = CMFalse;
 	sb4 status;
 	CMDBM_OracleSession *conn = (CMDBM_OracleSession*)connection;
 	CMDBM_OracleCheck(conn, status, ENDPOINT, OCITransCommit,
@@ -280,7 +280,7 @@ typedef struct CMDBM_OracleColumn {
     short       dummy_padder;
 } CMDBM_OracleColumn;
 
-CMDBM_STATIC CMUTIL_Bool CMDBM_Oracle_BindLong(
+CMDBM_STATIC CMBool CMDBM_Oracle_BindLong(
 		CMDBM_OracleSession *conn, OCIBind **bind,
 		OCIStmt *stmt, CMUTIL_JsonValue *jval,
         uint32_t pos, CMUTIL_Array *bufarr, CMUTIL_Json *out,
@@ -310,7 +310,7 @@ ENDPOINT:
 	return CMFalse;
 }
 
-CMDBM_STATIC CMUTIL_Bool CMDBM_Oracle_BindDouble(
+CMDBM_STATIC CMBool CMDBM_Oracle_BindDouble(
 		CMDBM_OracleSession *conn, OCIBind **bind,
 		OCIStmt *stmt, CMUTIL_JsonValue *jval,
         uint32_t pos, CMUTIL_Array *bufarr, CMUTIL_Json *out,
@@ -340,7 +340,7 @@ ENDPOINT:
 	return CMFalse;
 }
 
-CMDBM_STATIC CMUTIL_Bool CMDBM_Oracle_BindString(
+CMDBM_STATIC CMBool CMDBM_Oracle_BindString(
 		CMDBM_OracleSession *conn, OCIBind **bind,
 		OCIStmt *stmt, CMUTIL_JsonValue *jval,
         uint32_t pos, CMUTIL_Array *bufarr, CMUTIL_Json *out,
@@ -374,7 +374,7 @@ ENDPOINT:
 	return CMFalse;
 }
 
-CMDBM_STATIC CMUTIL_Bool CMDBM_Oracle_BindBoolean(
+CMDBM_STATIC CMBool CMDBM_Oracle_BindBoolean(
 		CMDBM_OracleSession *conn, OCIBind **bind,
 		OCIStmt *stmt, CMUTIL_JsonValue *jval,
         uint32_t pos, CMUTIL_Array *bufarr, CMUTIL_Json *out,
@@ -404,7 +404,7 @@ ENDPOINT:
 	return CMFalse;
 }
 
-CMDBM_STATIC CMUTIL_Bool CMDBM_Oracle_BindNull(
+CMDBM_STATIC CMBool CMDBM_Oracle_BindNull(
 		CMDBM_OracleSession *conn, OCIBind **bind,
 		OCIStmt *stmt, CMUTIL_JsonValue *jval,
         uint32_t pos, CMUTIL_Array *bufarr, CMUTIL_Json *out,
@@ -420,7 +420,7 @@ ENDPOINT:
 	return CMFalse;
 }
 
-typedef CMUTIL_Bool (*CMDBM_Oracle_BindProc)(
+typedef CMBool (*CMDBM_Oracle_BindProc)(
 		CMDBM_OracleSession *conn, OCIBind **bind,
 		OCIStmt *stmt, CMUTIL_JsonValue *jval,
         uint32_t pos, CMUTIL_Array *bufarr, CMUTIL_Json *out,
@@ -483,7 +483,7 @@ CMDBM_STATIC void CMDBM_Oracle_SetOutValue(
 		CMUTIL_String *temp;
 		switch (col->typecd) {
 		case CMUTIL_JsonValueBoolean:
-            CMCall(jval, SetBoolean, (CMUTIL_Bool)*((int*)col->buffer));
+            CMCall(jval, SetBoolean, (CMBool)*((int*)col->buffer));
 			break;
 		case CMUTIL_JsonValueLong:
             CMCall(jval, SetLong, (int64_t)*((int64_t*)col->buffer));
@@ -507,7 +507,7 @@ CMDBM_STATIC OCIStmt *CMDBM_Oracle_ExecuteBase(
     uint32_t i;
     size_t bsize;
 	sb4 status;
-	CMUTIL_Bool succ = CMFalse;
+    CMBool succ = CMFalse;
 	OCIStmt *stmt = NULL;
 	OCIBind **buffers = NULL;
 	CMUTIL_Array *array = CMUTIL_ArrayCreateEx(
@@ -591,7 +591,7 @@ CMDBM_STATIC OCIStmt *CMDBM_Oracle_SelectBase(
 		CMUTIL_JsonArray *binds, CMUTIL_JsonObject *outs,
 		CMUTIL_Array *outcols)
 {
-	CMUTIL_Bool succ = CMFalse;
+    CMBool succ = CMFalse;
 	ub4 j, colcnt;
 	sb4 status;
 	OCIStmt *stmt = CMDBM_Oracle_ExecuteBase(conn, query, binds, outs);
@@ -771,7 +771,7 @@ typedef struct CMDBM_Oracle_Cursor {
 	CMDBM_OracleSession	*conn;
 	OCIStmt				*stmt;
 	CMUTIL_Array		*outcols;
-	CMUTIL_Bool			isend;
+    CMBool			isend;
     int                 dummy_padder;
 } CMDBM_Oracle_Cursor;
 
