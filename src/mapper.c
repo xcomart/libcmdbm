@@ -202,19 +202,20 @@ CMDBM_STATIC CMUTIL_Bool CMDBM_MapperLessThanOrEqual(
 	return CMDBM_MapperGreaterThan(a, b)? CMFalse:CMTrue;
 }
 
-CMDBM_STATIC CMDBM_TestFunc CMDBM_MapperOperatorToFunc(char *op)
+CMDBM_STATIC CMDBM_TestFunc CMDBM_MapperOperatorToFunc(const char *op)
 {
 	CMUTIL_Bool eq, gt, lt, nt;
+    register const char *p = op;
 	eq = gt = lt = nt = CMFalse;
 
-	while (*op) {
-		switch (*op) {
+    while (*p) {
+        switch (*p) {
 		case '!': nt = CMTrue; break;
 		case '=': eq = CMTrue; break;
 		case '>': gt = CMTrue; break;
 		case '<': lt = CMTrue; break;
 		}
-		op++;
+        p++;
 	}
 
 	if (nt && eq)       // !=, =!
@@ -231,6 +232,8 @@ CMDBM_STATIC CMDBM_TestFunc CMDBM_MapperOperatorToFunc(char *op)
 		return CMDBM_MapperLessThan;
 	else if (eq)        // =, ==
 		return CMDBM_MapperEqual;
+    else
+        CMLogError("unknown test operator: %s", op);
 
 	// no comparable operator found
 	return NULL;
@@ -253,7 +256,8 @@ CMDBM_STATIC const char *CMDBM_MapperGetAttr(
 	return NULL;
 }
 
-CMDBM_STATIC const char *CMDBM_MapperGetId(CMUTIL_XmlNode *node, CMUTIL_Bool slient)
+CMDBM_STATIC const char *CMDBM_MapperGetId(
+        CMUTIL_XmlNode *node, CMUTIL_Bool slient)
 {
 	CMUTIL_String *id = CMCall(node, GetAttribute, "CMDBM_IDRebuilt");
 	if (id == NULL) {
