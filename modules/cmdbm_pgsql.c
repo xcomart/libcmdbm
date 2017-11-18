@@ -114,7 +114,7 @@ CMDBM_STATIC void *CMDBM_PgSQL_OpenConnection(
         CMUTIL_String *sbuf = CMUTIL_StringCreate();
         CMCall(((CMUTIL_Json*)params), ToString, sbuf, CMTrue);
         CMLogError("cannot connect to PgSQL database with parameters: "
-                   "%s\ncaused by: %s" ,CMCall(sbuf, GetCString),
+                   "%s\ndatabase message: %s" ,CMCall(sbuf, GetCString),
                    PQerrorMessage(conn));
         CMCall(sbuf, Destroy);
         CMDBM_PgSQL_CloseConnection(initres, conn);
@@ -133,21 +133,28 @@ CMDBM_STATIC void *CMDBM_PgSQL_OpenConnection(
     return res;
 }
 
+#define CMDBM_PgSQLCheck(c,l,f,...) do{   \
+    CMBool rv = CMTrue; \
+    PGresult *pr = NULL; \
+    pr = (f)(__VA_ARGS__);  \
+    if (PQresultStatus(pr) != PGRES_COMMAND_OK) {   \
+        CMLogError("%s failed: %s", #f, PQerrorMessage(c)); \
+        rv = CMFalse;   \
+    }   \
+    PQclear(pr);    \
+    if (!rv) goto l;    \
+} while(0)
+
 CMDBM_STATIC CMBool CMDBM_PgSQL_StartTransaction(
         void *initres, void *connection)
 {
     CMDBM_PgSQLConn *conn = (CMDBM_PgSQLConn*)connection;
-    PGresult *pr = NULL;
-    CMBool res = CMTrue;
-    conn->autocommit = CMFalse;
-    pr = PQexec(conn->conn, "BEGIN");
-    if (PQresultStatus(pr) != PGRES_COMMAND_OK) {
-        CMLogError("BEGIN command failed: %s", PQerrorMessage(conn->conn));
-        res = CMFalse;
-    }
-    PQclear(pr);
     CMUTIL_UNUSED(initres);
-    return res;
+    conn->autocommit = CMFalse;
+    CMDBM_PgSQLCheck(conn->conn, FAILED, PQexec, conn->conn, "BEGIN");
+    return CMTrue;
+FAILED:
+    return CMFalse;
 }
 
 CMDBM_STATIC void CMDBM_PgSQL_EndTransaction(
@@ -162,29 +169,20 @@ CMDBM_STATIC CMBool CMDBM_PgSQL_CommitTransaction(
         void *initres, void *connection)
 {
     CMDBM_PgSQLConn *conn = (CMDBM_PgSQLConn*)connection;
-    PGresult *pr = NULL;
-    CMBool res = CMTrue;
-    pr = PQexec(conn->conn, "COMMIT");
-    if (PQresultStatus(pr) != PGRES_COMMAND_OK) {
-        CMLogError("COMMIT command failed: %s", PQerrorMessage(conn->conn));
-        res = CMFalse;
-    }
-    PQclear(pr);
+    CMDBM_PgSQLCheck(conn->conn, FAILED, PQexec, conn->conn, "COMMIT");
     CMUTIL_UNUSED(initres);
-    return res;
+    return CMTrue;
+FAILED:
+    return CMFalse;
 }
 
 CMDBM_STATIC void CMDBM_PgSQL_RollbackTransaction(
         void *initres, void *connection)
 {
     CMDBM_PgSQLConn *conn = (CMDBM_PgSQLConn*)connection;
-    PGresult *pr = NULL;
-    pr = PQexec(conn->conn, "ROLLBACK");
-    if (PQresultStatus(pr) != PGRES_COMMAND_OK) {
-        CMLogError("ROLLBACK command failed: %s", PQerrorMessage(conn->conn));
-    }
-    PQclear(pr);
+    CMDBM_PgSQLCheck(conn->conn, FAILED, PQexec, conn->conn, "ROLLBACK");
     CMUTIL_UNUSED(initres);
+FAILED:;
 }
 
 #endif

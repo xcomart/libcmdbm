@@ -270,13 +270,13 @@ ENDPOINT:
 }
 
 typedef struct CMDBM_OracleColumn {
-	char		*name;
-    void		*buffer;
-    OCIDefine	*define;
-    uint32_t		index;
-    uint32_t		bufsz;
-    int			indicator;
-    ub2			typecd;
+    char        *name;
+    void        *buffer;
+    OCIDefine   *define;
+    uint32_t    index;
+    uint32_t    bufsz;
+    int         indicator;
+    ub2         typecd;
     short       dummy_padder;
 } CMDBM_OracleColumn;
 
