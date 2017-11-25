@@ -1,10 +1,11 @@
-
+﻿
 #include "functions.h"
 
 #ifdef CMDBM_ORACLE
 
 CMUTIL_LogDefine("cmdbm.module.oracle")
 
+#define __BORLANDC__
 #include <oci.h>
 
 CMDBM_STATIC void CMDBM_Oracle_LibraryInit()
@@ -505,7 +506,7 @@ CMDBM_STATIC OCIStmt *CMDBM_Oracle_ExecuteBase(
 		CMUTIL_JsonArray *binds, CMUTIL_JsonObject *outs)
 {
     uint32_t i;
-    size_t bsize;
+    size_t bsize = 0;
 	sb4 status;
     CMBool succ = CMFalse;
 	OCIStmt *stmt = NULL;

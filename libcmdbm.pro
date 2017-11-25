@@ -29,7 +29,7 @@ contains(CONFIG, CMDBM_ORACLE) {
     INCLUDEPATH += $$ORACLE_HOME/sdk/include
     LIBS += -L$$ORACLE_HOME
     win32 {
-        LIBS += oci
+        LIBS += -loci
     } else {
         LIBS += -lclntsh
     }
