@@ -1,4 +1,4 @@
-
+﻿
 #include "functions.h"
 
 #ifdef CMDBM_MYSQL
@@ -348,15 +348,15 @@ struct CMDBM_MySQL_FieldInfo {
     char name[2048];
     double doubleVal;
     int64_t longVal;
-    unsigned long length;
     MYSQL_BIND *bind;
     CMDBM_MySQLSession *sess;
     void (*fassign)(CMDBM_MySQL_FieldInfo*, MYSQL_STMT*, CMUTIL_JsonObject*);
     int index;
     CMUTIL_JsonValueType jtype;
+    unsigned long length;
     my_bool isnull;
     my_bool error;
-    char    dummy_padder[6];
+    char    dummy_padder[2];
 };
 
 CMDBM_STATIC void CMDBM_MySQL_ResultAssignLong(

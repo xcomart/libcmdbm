@@ -1,4 +1,4 @@
-
+﻿
 #include "functions.h"
 
 #ifdef CMDBM_PGSQL
@@ -52,7 +52,7 @@ CMDBM_STATIC void CMDBM_PgSQL_CleanUp(void *initres)
 }
 
 CMDBM_STATIC char *CMDBM_PgSQL_GetBindString(
-		void *initres, int index, char *buffer)
+        void *initres, uint32_t index, char *buffer)
 {
     CMUTIL_UNUSED(initres);
 	sprintf(buffer, "$%d", (index+1));
@@ -184,5 +184,29 @@ CMDBM_STATIC void CMDBM_PgSQL_RollbackTransaction(
     CMUTIL_UNUSED(initres);
 FAILED:;
 }
+
+CMDBM_ModuleInterface g_cmdbm_pgsql_interface = {
+    CMDBM_PgSQL_LibraryInit,
+    CMDBM_PgSQL_LibraryClear,
+    CMDBM_PgSQL_GetDBMSKey,
+    CMDBM_PgSQL_Initialize,
+    CMDBM_PgSQL_CleanUp,
+    CMDBM_PgSQL_GetBindString,
+    CMDBM_PgSQL_GetTestQuery,
+    CMDBM_PgSQL_OpenConnection,
+    CMDBM_PgSQL_CloseConnection,
+    CMDBM_PgSQL_StartTransaction,
+    CMDBM_PgSQL_EndTransaction,
+    CMDBM_PgSQL_CommitTransaction,
+    CMDBM_PgSQL_RollbackTransaction,
+    NULL, NULL, NULL, NULL, NULL, NULL, NULL
+//    CMDBM_Oracle_GetOneValue,
+//    CMDBM_Oracle_GetRow,
+//    CMDBM_Oracle_GetList,
+//    CMDBM_Oracle_Execute,
+//    CMDBM_Oracle_OpenCursor,
+//    CMDBM_Oracle_CloseCursor,
+//    CMDBM_Oracle_CursorNextRow
+};
 
 #endif

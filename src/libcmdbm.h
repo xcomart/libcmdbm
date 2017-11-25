@@ -1,4 +1,4 @@
-#ifndef LIBCMDBM_H__
+﻿#ifndef LIBCMDBM_H__
 #define LIBCMDBM_H__
 
 #ifdef __cplusplus
@@ -24,9 +24,9 @@ CMDBM_API void CMDBM_Clear(void);
 
 typedef struct CMDBM_ModuleInterface CMDBM_ModuleInterface;
 struct CMDBM_ModuleInterface {
-	void (*LibraryInit)();
-	void (*LibraryClear)();
-	const char *(*GetDBMSKey)();
+    void (*LibraryInit)(void);
+    void (*LibraryClear)(void);
+    const char *(*GetDBMSKey)(void);
 	void *(*Initialize)(const char *dbcs, const char *prcs);
 	void (*CleanUp)(
 			void *initres);
@@ -34,7 +34,7 @@ struct CMDBM_ModuleInterface {
 			void *initres,
             uint32_t index,
 			char *buffer);
-	const char *(*GetTestQuery)();
+    const char *(*GetTestQuery)(void);
 	void *(*OpenConnection)(
 			void *initres,
 			CMUTIL_JsonObject *params);
