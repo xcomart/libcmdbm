@@ -52,10 +52,25 @@ CMDBM_STATIC void CMDBM_PgSQL_CleanUp(void *initres)
 }
 
 CMDBM_STATIC char *CMDBM_PgSQL_GetBindString(
-        void *initres, uint32_t index, char *buffer)
+        void *initres, uint32_t index, char *buffer, CMUTIL_JsonValueType vtype)
 {
+    const char *typestr = NULL;
     CMUTIL_UNUSED(initres);
-	sprintf(buffer, "$%d", (index+1));
+    switch (vtype) {
+    case CMUTIL_JsonValueLong:
+        typestr = "int8";
+        break;
+    case CMUTIL_JsonValueDouble:
+        typestr = "float8";
+        break;
+    case CMUTIL_JsonValueBoolean:
+        typestr = "bool";
+        break;
+    default:
+        typestr = "varchar[]";
+        break;
+    }
+    sprintf(buffer, "$%d::%s", (index+1), typestr);
 	return buffer;
 }
 
@@ -67,10 +82,10 @@ CMDBM_STATIC const char *CMDBM_PgSQL_GetTestQuery()
 CMDBM_STATIC void CMDBM_PgSQL_CloseConnection(
         void *initres, void *connection)
 {
-    CMDBM_PgSQLConn *conn = (CMDBM_PgSQLConn*)connection;
-    if (conn) {
-        PQfinish(conn->conn);
-        CMFree(conn);
+    CMDBM_PgSQLConn *sess = (CMDBM_PgSQLConn*)connection;
+    if (sess) {
+        PQfinish(sess->conn);
+        CMFree(sess);
     }
     CMUTIL_UNUSED(initres);
 }
@@ -145,13 +160,21 @@ CMDBM_STATIC void *CMDBM_PgSQL_OpenConnection(
     if (!rv) goto l;    \
 } while(0)
 
+#define CMDBM_PgSQLResult(c,l,r,f,...) do{   \
+    r = (f)(__VA_ARGS__);  \
+    if (PQresultStatus(r) != PGRES_COMMAND_OK) {   \
+        CMLogError("%s failed: %s", #f, PQerrorMessage(c)); \
+        goto l;   \
+    }   \
+} while(0)
+
 CMDBM_STATIC CMBool CMDBM_PgSQL_StartTransaction(
         void *initres, void *connection)
 {
-    CMDBM_PgSQLConn *conn = (CMDBM_PgSQLConn*)connection;
+    CMDBM_PgSQLConn *sess = (CMDBM_PgSQLConn*)connection;
     CMUTIL_UNUSED(initres);
-    conn->autocommit = CMFalse;
-    CMDBM_PgSQLCheck(conn->conn, FAILED, PQexec, conn->conn, "BEGIN");
+    sess->autocommit = CMFalse;
+    CMDBM_PgSQLCheck(sess->conn, FAILED, PQexec, sess->conn, "BEGIN");
     return CMTrue;
 FAILED:
     return CMFalse;
@@ -160,8 +183,8 @@ FAILED:
 CMDBM_STATIC void CMDBM_PgSQL_EndTransaction(
         void *initres, void *connection)
 {
-    CMDBM_PgSQLConn *conn = (CMDBM_PgSQLConn*)connection;
-    conn->autocommit = CMTrue;
+    CMDBM_PgSQLConn *sess = (CMDBM_PgSQLConn*)connection;
+    sess->autocommit = CMTrue;
     CMUTIL_UNUSED(initres);
 }
 
@@ -179,11 +202,43 @@ FAILED:
 CMDBM_STATIC void CMDBM_PgSQL_RollbackTransaction(
         void *initres, void *connection)
 {
-    CMDBM_PgSQLConn *conn = (CMDBM_PgSQLConn*)connection;
-    CMDBM_PgSQLCheck(conn->conn, FAILED, PQexec, conn->conn, "ROLLBACK");
+    CMDBM_PgSQLConn *sess = (CMDBM_PgSQLConn*)connection;
+    CMDBM_PgSQLCheck(sess->conn, FAILED, PQexec, sess->conn, "ROLLBACK");
     CMUTIL_UNUSED(initres);
 FAILED:;
 }
+
+/*
+ * TODO: build code
+ *
+CMDBM_STATIC char **CMDBM_PgSQL_ToBindArray(
+        CMUTIL_JsonArray *binds, CMUTIL_Array *bufarr)
+{
+    size_t cnt = CMCall(binds, GetSize);
+    uint32_t i;
+    char **res = CMAlloc(sizeof(char*) * cnt);
+    memset(res, 0x0, sizeof(char*) * cnt);
+    for (i=0; i<cnt; i++) {
+        CMUTIL_Json *json = CMCall(binds, Get, i);
+        if (CMCall(json, GetType) != CMUTIL_JsonTypeValue) {
+            CMLogError("binding variable is not value type.");
+            goto FAILED;
+        }
+        // TODO: build code
+        switch (CMCall((CMUTIL_JsonValue*)json, GetValueType)) {
+
+        }
+    }
+FAILED:
+    return NULL;
+}
+
+CMDBM_STATIC PGresult *CMDBM_PgSQL_ExecuteBase(
+        CMDBM_PgSQLConn *sess, CMUTIL_String *query,
+        CMUTIL_JsonArray *binds, CMUTIL_JsonObject *outs)
+{
+}
+*/
 
 CMDBM_ModuleInterface g_cmdbm_pgsql_interface = {
     CMDBM_PgSQL_LibraryInit,

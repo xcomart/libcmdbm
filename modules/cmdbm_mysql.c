@@ -56,9 +56,9 @@ CMDBM_STATIC void CMDBM_MySQL_CleanUp(
 }
 
 CMDBM_STATIC char *CMDBM_MySQL_GetBindString(
-        void *initres, uint32_t index, char *buffer)
+        void *initres, uint32_t index, char *buffer, CMUTIL_JsonValueType vtype)
 {
-	CMUTIL_UNUSED(initres, index);
+    CMUTIL_UNUSED(initres, index, vtype);
 	strcpy(buffer, "?");
 	return buffer;
 }
