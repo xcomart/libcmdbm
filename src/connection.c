@@ -20,10 +20,11 @@ typedef struct CMDBM_Cursor_Internal {
 CMDBM_STATIC char *CMDBM_ConnectionGetBindString(
 		CMDBM_Connection *conn,
         uint32_t index,
-		char *buffer)
+        char *buffer,
+        CMUTIL_JsonValueType vtype)
 {
 	CMDBM_Connection_Internal *iconn = (CMDBM_Connection_Internal*)conn;
-	return iconn->modif->GetBindString(iconn->initres, index, buffer);
+    return iconn->modif->GetBindString(iconn->initres, index, buffer, vtype);
 }
 
 #define CMDBM_DEFAULT_EXEC(a)	do {\

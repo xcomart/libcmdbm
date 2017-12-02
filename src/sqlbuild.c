@@ -179,8 +179,10 @@ CMDBM_STATIC CMBool CMDBM_BuildOutParam(
 	char pbuf[1024];
     uint32_t idx = (uint32_t)CMCall(bindings, GetSize);
 	CMUTIL_Json *value = CMCall(params, Get, key);
+    CMUTIL_JsonValue *jval = (CMUTIL_JsonValue*)value;
+    CMUTIL_JsonValueType vtype = CMCall(jval, GetValueType);
 
-	CMCall(conn, GetBindString, idx, pbuf);
+    CMCall(conn, GetBindString, idx, pbuf, vtype);
 	CMCall(obuf, AddString, pbuf);
 	if (!value) {
 		CMCall(params, PutString, key, "1");
@@ -263,7 +265,9 @@ CMDBM_STATIC CMBool CMDBM_BuildBind(
 	if (data) {
         uint32_t index = (uint32_t)CMCall(bindings, GetSize);
 		char buf[50];
-		CMCall(conn, GetBindString, index, buf);
+        CMUTIL_JsonValue *value = (CMUTIL_JsonValue*)data;
+        CMUTIL_JsonValueType vtype = CMCall(value, GetValueType);
+        CMCall(conn, GetBindString, index, buf, vtype);
 		CMCall(obuf, AddString, buf);
 		CMCall(bindings, Add, data);
 		return CMTrue;

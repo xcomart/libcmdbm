@@ -130,9 +130,9 @@ CMDBM_STATIC void CMDBM_Oracle_CleanUp(void *initres)
 }
 
 CMDBM_STATIC char *CMDBM_Oracle_GetBindString(
-        void *initres, uint32_t index, char *buffer)
+        void *initres, uint32_t index, char *buffer, CMUTIL_JsonValueType vtype)
 {
-	CMUTIL_UNUSED(initres);
+    CMUTIL_UNUSED(initres, vtype);
     sprintf(buffer, ":%u", (index+1));
 	return buffer;
 }
