@@ -19,6 +19,17 @@ extern "C" {
 # endif
 #endif
 
+#define LIBCMDBM_VER_MAJOR      0
+#define LIBCMDBM_VER_MINOR      1
+#define LIBCMDBM_VER_PATCH      0
+
+#define LIBCMDBM_VER \
+    CMUTIL_TOSTR(LIBCMDBM_VER_MAJOR)"."\
+    CMUTIL_TOSTR(LIBCMDBM_VER_MINOR)"."\
+    CMUTIL_TOSTR(LIBCMDBM_VER_PATCH)
+
+
+CMDBM_API const char *CMDBM_GetLibVersion(void);
 CMDBM_API void CMDBM_Init(void);
 CMDBM_API void CMDBM_Clear(void);
 
