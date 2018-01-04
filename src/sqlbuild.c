@@ -180,7 +180,7 @@ CMDBM_STATIC CMBool CMDBM_BuildOutParam(
     uint32_t idx = (uint32_t)CMCall(bindings, GetSize);
 	CMUTIL_Json *value = CMCall(params, Get, key);
     CMUTIL_JsonValue *jval = (CMUTIL_JsonValue*)value;
-    CMUTIL_JsonValueType vtype = CMCall(jval, GetValueType);
+    CMJsonValueType vtype = CMCall(jval, GetValueType);
 
     CMCall(conn, GetBindString, idx, pbuf, vtype);
 	CMCall(obuf, AddString, pbuf);
@@ -208,9 +208,9 @@ CMDBM_STATIC CMBool CMDBM_BuildReplace(
 {
 	const char *key = CMCall(node, GetName);
 	CMUTIL_Json *pitem = CMCall(params, Get, key);
-	CMUTIL_JsonType jtype = CMCall(pitem, GetType);
+    CMJsonType jtype = CMCall(pitem, GetType);
 	CMUTIL_UNUSED(sess, conn, bindings, after, outs, rembuf);
-	if (jtype == CMUTIL_JsonTypeValue) {
+    if (jtype == CMJsonTypeValue) {
 		CMUTIL_String *str = CMCall(params, GetString, key);
 		CMCall(obuf, AddAnother, str);
 		return CMTrue;
@@ -266,7 +266,7 @@ CMDBM_STATIC CMBool CMDBM_BuildBind(
         uint32_t index = (uint32_t)CMCall(bindings, GetSize);
 		char buf[50];
         CMUTIL_JsonValue *value = (CMUTIL_JsonValue*)data;
-        CMUTIL_JsonValueType vtype = CMCall(value, GetValueType);
+        CMJsonValueType vtype = CMCall(value, GetValueType);
         CMCall(conn, GetBindString, index, buf, vtype);
 		CMCall(obuf, AddString, buf);
 		CMCall(bindings, Add, data);
@@ -411,7 +411,7 @@ CMDBM_STATIC CMBool CMDBM_BuildForeach(
 		CMLogErrorS("parameter have no collection with key '%s'", scolkey);
 		return CMFalse;
 	}
-	if (CMCall(&(collection->parent), GetType) != CMUTIL_JsonTypeArray) {
+    if (CMCall(&(collection->parent), GetType) != CMJsonTypeArray) {
 		CMLogErrorS("parameter item '%s' is not a collection.", scolkey);
 		return CMFalse;
 	}

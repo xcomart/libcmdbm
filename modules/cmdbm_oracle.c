@@ -130,7 +130,7 @@ CMDBM_STATIC void CMDBM_Oracle_CleanUp(void *initres)
 }
 
 CMDBM_STATIC char *CMDBM_Oracle_GetBindString(
-        void *initres, uint32_t index, char *buffer, CMUTIL_JsonValueType vtype)
+        void *initres, uint32_t index, char *buffer, CMJsonValueType vtype)
 {
     CMUTIL_UNUSED(initres, vtype);
     sprintf(buffer, ":%u", (index+1));
@@ -294,7 +294,7 @@ CMDBM_STATIC CMBool CMDBM_Oracle_BindLong(
 	if (out) {
 		CMDBM_OracleColumn *item = CMAlloc(sizeof(CMDBM_OracleColumn));
 		memset(item, 0x0, sizeof(sizeof(CMDBM_OracleColumn)));
-		item->typecd = CMUTIL_JsonValueLong;
+        item->typecd = CMJsonValueLong;
 		item->index = pos;
 		item->buffer = val;
         CMCall(outarr, Add, item);
@@ -324,7 +324,7 @@ CMDBM_STATIC CMBool CMDBM_Oracle_BindDouble(
 	if (out) {
 		CMDBM_OracleColumn *item = CMAlloc(sizeof(CMDBM_OracleColumn));
 		memset(item, 0x0, sizeof(sizeof(CMDBM_OracleColumn)));
-		item->typecd = CMUTIL_JsonValueDouble;
+        item->typecd = CMJsonValueDouble;
 		item->index = pos;
 		item->buffer = val;
         CMCall(outarr, Add, item);
@@ -353,7 +353,7 @@ CMDBM_STATIC CMBool CMDBM_Oracle_BindString(
 	if (out) {
 		CMDBM_OracleColumn *item = CMAlloc(sizeof(CMDBM_OracleColumn));
 		memset(item, 0x0, sizeof(sizeof(CMDBM_OracleColumn)));
-		item->typecd = CMUTIL_JsonValueString;
+        item->typecd = CMJsonValueString;
 		item->index = pos;
         CMCall(val, AddNString, buf, 4096);
         CMCall(outarr, Add, item);
@@ -388,7 +388,7 @@ CMDBM_STATIC CMBool CMDBM_Oracle_BindBoolean(
 	if (out) {
 		CMDBM_OracleColumn *item = CMAlloc(sizeof(CMDBM_OracleColumn));
 		memset(item, 0x0, sizeof(sizeof(CMDBM_OracleColumn)));
-		item->typecd = CMUTIL_JsonValueBoolean;
+        item->typecd = CMJsonValueBoolean;
 		item->index = pos;
 		item->buffer = val;
         CMCall(outarr, Add, item);
@@ -483,16 +483,16 @@ CMDBM_STATIC void CMDBM_Oracle_SetOutValue(
         size_t len;
 		CMUTIL_String *temp;
 		switch (col->typecd) {
-		case CMUTIL_JsonValueBoolean:
+        case CMJsonValueBoolean:
             CMCall(jval, SetBoolean, (CMBool)*((int*)col->buffer));
 			break;
-		case CMUTIL_JsonValueLong:
+        case CMJsonValueLong:
             CMCall(jval, SetLong, (int64_t)*((int64_t*)col->buffer));
 			break;
-		case CMUTIL_JsonValueDouble:
+        case CMJsonValueDouble:
             CMCall(jval, SetDouble, (double)*((double*)col->buffer));
 			break;
-		case CMUTIL_JsonValueString:
+        case CMJsonValueString:
             temp = CMCall(jval, GetString);
             len = strlen(CMCall(temp, GetCString));
             CMCall(temp, CutTailOff, len);
@@ -531,7 +531,7 @@ CMDBM_STATIC OCIStmt *CMDBM_Oracle_ExecuteBase(
 		char ibuf[20];
         CMUTIL_Json *json = CMCall(binds, Get, i);
 		sprintf(ibuf, "%d", i);
-        if (CMCall(json, GetType) == CMUTIL_JsonTypeValue) {
+        if (CMCall(json, GetType) == CMJsonTypeValue) {
 			CMUTIL_JsonValue *jval = (CMUTIL_JsonValue*)json;
             CMUTIL_Json *out = CMCall(outs, Get, ibuf);
 			// type of json value

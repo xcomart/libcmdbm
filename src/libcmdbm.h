@@ -45,7 +45,7 @@ struct CMDBM_ModuleInterface {
 			void *initres,
             uint32_t index,
             char *buffer,
-            CMUTIL_JsonValueType vtype);
+            CMJsonValueType vtype);
     const char *(*GetTestQuery)(void);
 	void *(*OpenConnection)(
 			void *initres,

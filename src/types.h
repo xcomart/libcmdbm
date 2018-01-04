@@ -17,7 +17,7 @@ struct CMDBM_Connection {
 			CMDBM_Connection *conn,
             uint32_t index,
             char *buffer,
-            CMUTIL_JsonValueType vtype);
+            CMJsonValueType vtype);
 	CMUTIL_XmlNode *(*GetQuery)(
 			CMDBM_Connection *conn,
 			const char *id);

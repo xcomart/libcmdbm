@@ -16,7 +16,6 @@ This library is much like with MyBatis java library.
 The libcmdbm library :
 
 * has intuitive structure to use like OOP language
-* is written in pure ISO C99 code
 * runs on almost every platforms
 * supports Oracle, MySQL, PgSQL and ODBC basically out of box,
     and any database can be added by creating interface module.

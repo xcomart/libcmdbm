@@ -407,8 +407,8 @@ CMDBM_STATIC CMBool CMDBM_DatabaseInitialize(
 	idb->pgcs = CMStrdup(pgcs);
 	idb->initres = idb->modif->Initialize(idb->dbcs, idb->pgcs);
 	idb->connpool = CMUTIL_PoolCreate(
-				idb->poolconf->initcnt,
-				idb->poolconf->maxcnt,
+                (int)idb->poolconf->initcnt,
+                (int)idb->poolconf->maxcnt,
 				CMDBM_DatabasePoolCreateProc,
 				CMDBM_DatabasePoolDestroyProc,
 				CMDBM_DatabasePoolTestProc,

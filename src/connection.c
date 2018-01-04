@@ -21,7 +21,7 @@ CMDBM_STATIC char *CMDBM_ConnectionGetBindString(
 		CMDBM_Connection *conn,
         uint32_t index,
         char *buffer,
-        CMUTIL_JsonValueType vtype)
+        CMJsonValueType vtype)
 {
 	CMDBM_Connection_Internal *iconn = (CMDBM_Connection_Internal*)conn;
     return iconn->modif->GetBindString(iconn->initres, index, buffer, vtype);
