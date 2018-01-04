@@ -3,7 +3,7 @@
 
 void CMDBM_Init()
 {
-    CMUTIL_Init(CMUTIL_MemSystem);
+    CMUTIL_Init(CMMemSystem);
 	CMDBM_MapperInit();
 }
 

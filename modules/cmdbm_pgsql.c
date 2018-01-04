@@ -52,18 +52,18 @@ CMDBM_STATIC void CMDBM_PgSQL_CleanUp(void *initres)
 }
 
 CMDBM_STATIC char *CMDBM_PgSQL_GetBindString(
-        void *initres, uint32_t index, char *buffer, CMUTIL_JsonValueType vtype)
+        void *initres, uint32_t index, char *buffer, CMJsonValueType vtype)
 {
     const char *typestr = NULL;
     CMUTIL_UNUSED(initres);
     switch (vtype) {
-    case CMUTIL_JsonValueLong:
+    case CMJsonValueLong:
         typestr = "int8";
         break;
-    case CMUTIL_JsonValueDouble:
+    case CMJsonValueDouble:
         typestr = "float8";
         break;
-    case CMUTIL_JsonValueBoolean:
+    case CMJsonValueBoolean:
         typestr = "bool";
         break;
     default:

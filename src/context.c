@@ -51,7 +51,7 @@ CMDBM_STATIC void CMDBM_ContextConfigClean(CMUTIL_Json *json)
 {
     uint32_t i;
 	switch (CMCall(json, GetType)) {
-	case CMUTIL_JsonTypeObject: {
+    case CMJsonTypeObject: {
 		CMUTIL_JsonObject *jobj = (CMUTIL_JsonObject*)json;
 		CMUTIL_StringArray *keys = CMCall(jobj, GetKeys);
 		for (i=0; i<CMCall(keys, GetSize); i++) {
@@ -69,7 +69,7 @@ CMDBM_STATIC void CMDBM_ContextConfigClean(CMUTIL_Json *json)
 		CMCall(keys, Destroy);
 		break;
 	}
-	case CMUTIL_JsonTypeArray: {
+    case CMJsonTypeArray: {
 		CMUTIL_JsonArray *jarr = (CMUTIL_JsonArray*)json;
 		for (i=0; i<CMCall(jarr, GetSize); i++)
 			// change item recursively.
@@ -96,16 +96,16 @@ CMDBM_STATIC CMBool CMDBM_ContextParsePoolConfig(
 
 		memset(poolconf, 0x0, sizeof(CMDBM_PoolConfig));
 		if (CMCall(pcfg, Get, "initcount"))
-			poolconf->initcnt = (int)CMCall(pcfg, GetLong, "initcount");
+            poolconf->initcnt = (uint32_t)CMCall(pcfg, GetLong, "initcount");
 		else
 			poolconf->initcnt = 5;
 		if (CMCall(pcfg, Get, "maxcount"))
-			poolconf->maxcnt = (int)CMCall(pcfg, GetLong, "maxcount");
+            poolconf->maxcnt = (uint32_t)CMCall(pcfg, GetLong, "maxcount");
 		else
 			poolconf->maxcnt = 20;
 		if (CMCall(pcfg, Get, "pinginterval"))
 			poolconf->pingterm =
-					(int)CMCall(pcfg, GetLong, "pinginterval");
+                    (uint32_t)CMCall(pcfg, GetLong, "pinginterval");
 		else
 			poolconf->pingterm = 30;
 		if (testsql)
@@ -207,13 +207,13 @@ CMDBM_STATIC CMBool CMDBM_ContextParseDatabase(
 	}
 
 	if (CMCall(pcfg, Get, "initcount"))
-		pconf->initcnt = (int)CMCall(pcfg, GetLong, "initcount");
+        pconf->initcnt = (uint32_t)CMCall(pcfg, GetLong, "initcount");
 
 	if (CMCall(pcfg, Get, "maxcount"))
-		pconf->maxcnt = (int)CMCall(pcfg, GetLong, "maxcount");
+        pconf->maxcnt = (uint32_t)CMCall(pcfg, GetLong, "maxcount");
 
 	if (CMCall(pcfg, Get, "pinginterval"))
-		pconf->pingterm =(int)CMCall(pcfg, GetLong, "pinginterval");
+        pconf->pingterm =(uint32_t)CMCall(pcfg, GetLong, "pinginterval");
 
 	if (CMCall(dcfg, Get, "params")) {
 		CMUTIL_Json *json = CMCall(dcfg, Get, "params");
@@ -225,8 +225,8 @@ CMDBM_STATIC CMBool CMDBM_ContextParseDatabase(
 	for (i=0; i<CMCall(keys, GetSize); i++) {
 		const char *key = CMCall(keys, GetCString, i);
 		CMUTIL_Json *item = CMCall(dcfg, Get, key);
-		CMUTIL_JsonType type = CMCall(item, GetType);
-		if (type == CMUTIL_JsonTypeValue) {
+        CMJsonType type = CMCall(item, GetType);
+        if (type == CMJsonTypeValue) {
 			CMUTIL_Json *nitem = CMCall(item, Clone);
 			CMCall(param, Put, key, nitem);
 		}
@@ -243,7 +243,7 @@ CMDBM_STATIC CMBool CMDBM_ContextParseDatabase(
 	// parse mappers
 	if (CMCall(dcfg, Get, "mappers")) {
 		CMUTIL_Json *mappers = CMCall(dcfg, Get, "mappers");
-		if (CMCall(mappers, GetType) == CMUTIL_JsonTypeArray) {
+        if (CMCall(mappers, GetType) == CMJsonTypeArray) {
 			if (!CMDBM_ContextParseMappers(db, (CMUTIL_JsonArray*)mappers)) {
 				goto ENDPOINT;
 			}
@@ -282,7 +282,7 @@ CMDBM_STATIC CMBool CMDBM_ContextParseConfig(
 	CMUTIL_JsonObject *jconf = NULL;
 	CMUTIL_String *type = NULL, *ltype = NULL;
 
-	if (CMCall(config, GetType) != CMUTIL_JsonTypeObject) {
+    if (CMCall(config, GetType) != CMJsonTypeObject) {
 		CMLogErrorS("invalid configuration structure.");
 		goto ENDPOINT;
 	}
@@ -294,7 +294,7 @@ CMDBM_STATIC CMBool CMDBM_ContextParseConfig(
 	// load pool config
 	item = CMCall(jconf, Get, "poolconfigurations");
 	if (item) {
-		if (CMCall(item, GetType) != CMUTIL_JsonTypeArray) {
+        if (CMCall(item, GetType) != CMJsonTypeArray) {
 			CMLogErrorS("invalid configuration structure.");
 			goto ENDPOINT;
 		}
@@ -303,7 +303,7 @@ CMDBM_STATIC CMBool CMDBM_ContextParseConfig(
 			CMUTIL_JsonObject *pcfg = NULL;
 
 			item = CMCall(jarr, Get, i);
-			if (CMCall(item, GetType) != CMUTIL_JsonTypeObject) {
+            if (CMCall(item, GetType) != CMJsonTypeObject) {
 				CMLogErrorS("invalid configuration structure.");
 				goto ENDPOINT;
 			}
@@ -322,7 +322,7 @@ CMDBM_STATIC CMBool CMDBM_ContextParseConfig(
 		CMLogErrorS("database configuration not found.");
 		goto ENDPOINT;
 	}
-	if (CMCall(item, GetType) != CMUTIL_JsonTypeArray) {
+    if (CMCall(item, GetType) != CMJsonTypeArray) {
 		CMLogErrorS("invalid configuration structure.");
 		goto ENDPOINT;
 	}
@@ -331,7 +331,7 @@ CMDBM_STATIC CMBool CMDBM_ContextParseConfig(
 		CMUTIL_JsonObject *dcfg = NULL;
 
 		item = CMCall(jarr, Get, i);
-		if (CMCall(item, GetType) != CMUTIL_JsonTypeObject) {
+        if (CMCall(item, GetType) != CMJsonTypeObject) {
 			CMLogErrorS("invalid configuration structure.");
 			goto ENDPOINT;
 		}

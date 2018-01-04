@@ -42,8 +42,11 @@ contains(CONFIG, CMDBM_ORACLE) {
 contains(CONFIG, CMDBM_MYSQL) {
     DEFINES += CMDBM_MYSQL
     !win32-msvc* {
-#        PKGCONFIG += mysqlclient
-        PKGCONFIG += mariadb
+        win32: {
+            PKGCONFIG += mariadb
+        } else {
+            PKGCONFIG += mysqlclient
+        }
     }
 }
 

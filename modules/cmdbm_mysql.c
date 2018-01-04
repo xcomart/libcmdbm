@@ -56,7 +56,7 @@ CMDBM_STATIC void CMDBM_MySQL_CleanUp(
 }
 
 CMDBM_STATIC char *CMDBM_MySQL_GetBindString(
-        void *initres, uint32_t index, char *buffer, CMUTIL_JsonValueType vtype)
+        void *initres, uint32_t index, char *buffer, CMJsonValueType vtype)
 {
     CMUTIL_UNUSED(initres, index, vtype);
 	strcpy(buffer, "?");
@@ -296,7 +296,7 @@ CMDBM_STATIC MYSQL_STMT *CMDBM_MySQL_ExecuteBase(
 		char ibuf[20];
         CMUTIL_Json *json = CMCall(binds, Get, i);
 		sprintf(ibuf, "%d", i);
-        if (CMCall(json, GetType) == CMUTIL_JsonTypeValue) {
+        if (CMCall(json, GetType) == CMJsonTypeValue) {
 			CMUTIL_JsonValue *jval = (CMUTIL_JsonValue*)json;
             CMUTIL_Json *out = CMCall(outs, Get, ibuf);
 			// type of json value
@@ -352,11 +352,11 @@ struct CMDBM_MySQL_FieldInfo {
     CMDBM_MySQLSession *sess;
     void (*fassign)(CMDBM_MySQL_FieldInfo*, MYSQL_STMT*, CMUTIL_JsonObject*);
     int index;
-    CMUTIL_JsonValueType jtype;
+    CMJsonValueType jtype;
     unsigned long length;
     my_bool isnull;
     my_bool error;
-    char    dummy_padder[2];
+    char    dummy_padder[6];
 };
 
 CMDBM_STATIC void CMDBM_MySQL_ResultAssignLong(
@@ -450,7 +450,7 @@ CMDBM_STATIC MYSQL_STMT *CMDBM_MySQL_SelectBase(
 				finfo->fassign = CMDBM_MySQL_ResultAssignBoolean;
 				b->buffer_type = MYSQL_TYPE_LONGLONG;
 				b->buffer = &finfo->longVal;
-				finfo->jtype = CMUTIL_JsonValueBoolean;
+                finfo->jtype = CMJsonValueBoolean;
 				break;
 
 			case MYSQL_TYPE_TINY:
@@ -464,7 +464,7 @@ CMDBM_STATIC MYSQL_STMT *CMDBM_MySQL_SelectBase(
 				finfo->fassign = CMDBM_MySQL_ResultAssignLong;
 				b->buffer_type = MYSQL_TYPE_LONGLONG;
 				b->buffer = &finfo->longVal;
-				finfo->jtype = CMUTIL_JsonValueLong;
+                finfo->jtype = CMJsonValueLong;
 				break;
 
 			case MYSQL_TYPE_FLOAT:
@@ -475,7 +475,7 @@ CMDBM_STATIC MYSQL_STMT *CMDBM_MySQL_SelectBase(
 				finfo->fassign = CMDBM_MySQL_ResultAssignDouble;
 				b->buffer_type = MYSQL_TYPE_DOUBLE;
 				b->buffer = &finfo->doubleVal;
-				finfo->jtype = CMUTIL_JsonValueDouble;
+                finfo->jtype = CMJsonValueDouble;
 				break;
 
 			default:
@@ -484,7 +484,7 @@ CMDBM_STATIC MYSQL_STMT *CMDBM_MySQL_SelectBase(
 				b->buffer_type = MYSQL_TYPE_STRING;
                 b->buffer = NULL;
                 b->buffer_length = 0;
-				finfo->jtype = CMUTIL_JsonValueString;
+                finfo->jtype = CMJsonValueString;
 				break;
 			}
 			b->length = &(finfo->length);
@@ -529,7 +529,7 @@ CMDBM_STATIC void CMDBM_MySQL_FieldDestroy(void *data)
 {
 	CMDBM_MySQL_FieldInfo *finfo = (CMDBM_MySQL_FieldInfo*)data;
 	if (finfo) {
-		if (finfo->jtype == CMUTIL_JsonValueString && finfo->bind->buffer)
+        if (finfo->jtype == CMJsonValueString && finfo->bind->buffer)
             CMFree(finfo->bind->buffer);
 		CMFree(finfo);
 	}

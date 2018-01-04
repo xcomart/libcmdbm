@@ -100,7 +100,7 @@ FAILED:
 }
 
 CMDBM_STATIC char *CMDBM_ODBC_GetBindString(
-        void *initres, uint32_t index, char *buffer, CMUTIL_JsonValueType vtype)
+        void *initres, uint32_t index, char *buffer, CMJsonValueType vtype)
 {
     CMUTIL_UNUSED(initres, index, vtype);
     strcpy(buffer, "?");
@@ -228,12 +228,12 @@ struct CMDBM_ODBC_BindField {
                                     CMDBM_ODBC_BindField*, SQLHSTMT,
                                     CMUTIL_JsonObject*, SQLUSMALLINT);
     SQLLEN                  outLen;
-    CMUTIL_JsonValueType    jtype;
+    CMJsonValueType         jtype;
     short                   boolVal;
     short                   dummy_padder;
 };
 
-CMDBM_ODBC_BindField *CMDBM_ODBC_BindFieldCreate(CMUTIL_JsonValueType jtype) {
+CMDBM_ODBC_BindField *CMDBM_ODBC_BindFieldCreate(CMJsonValueType jtype) {
     CMDBM_ODBC_BindField *res = CMAlloc(sizeof(CMDBM_ODBC_BindField));
     memset(res, 0x0, sizeof(CMDBM_ODBC_BindField));
     res->jtype = jtype;
@@ -255,7 +255,7 @@ CMDBM_STATIC CMBool CMDBM_ODBC_BindLong(
 {
     SQLLEN vlen = sizeof(int64_t);
     CMDBM_ODBC_BindField *bfield =
-            CMDBM_ODBC_BindFieldCreate(CMUTIL_JsonValueLong);
+            CMDBM_ODBC_BindFieldCreate(CMJsonValueLong);
     SQLSMALLINT inout = out? SQL_PARAM_INPUT:SQL_PARAM_OUTPUT;
     bfield->longVal = CMCall(jval, GetLong);
     TRYODBC(stmt, SQL_HANDLE_STMT, SQLBindParameter(
@@ -275,7 +275,7 @@ CMDBM_STATIC CMBool CMDBM_ODBC_BindDouble(
 {
     SQLLEN vlen = sizeof(double);
     CMDBM_ODBC_BindField *bfield =
-            CMDBM_ODBC_BindFieldCreate(CMUTIL_JsonValueDouble);
+            CMDBM_ODBC_BindFieldCreate(CMJsonValueDouble);
     SQLSMALLINT inout = out? SQL_PARAM_INPUT:SQL_PARAM_OUTPUT;
     bfield->doubleVal = CMCall(jval, GetDouble);
     TRYODBC(stmt, SQL_HANDLE_STMT, SQLBindParameter(
@@ -296,7 +296,7 @@ CMDBM_STATIC CMBool CMDBM_ODBC_BindString(
     CMUTIL_String *str = CMCall(jval, GetString);
     SQLLEN osize = (SQLLEN)CMCall(str, GetSize);
     CMDBM_ODBC_BindField *bfield =
-            CMDBM_ODBC_BindFieldCreate(CMUTIL_JsonValueString);
+            CMDBM_ODBC_BindFieldCreate(CMJsonValueString);
     SQLSMALLINT inout = out? SQL_PARAM_INPUT:SQL_PARAM_OUTPUT;
     if (out && osize < 4096)
         osize = 4096;
@@ -319,7 +319,7 @@ CMDBM_STATIC CMBool CMDBM_ODBC_BindBoolean(
 {
     SQLLEN vlen = sizeof(short);
     CMDBM_ODBC_BindField *bfield =
-            CMDBM_ODBC_BindFieldCreate(CMUTIL_JsonValueBoolean);
+            CMDBM_ODBC_BindFieldCreate(CMJsonValueBoolean);
     SQLSMALLINT inout = out? SQL_PARAM_INPUT:SQL_PARAM_OUTPUT;
     bfield->boolVal = CMCall(jval, GetBoolean);
     TRYODBC(stmt, SQL_HANDLE_STMT, SQLBindParameter(
@@ -338,12 +338,12 @@ CMDBM_STATIC CMBool CMDBM_ODBC_BindNull(
         CMUTIL_Array *bufarr, CMUTIL_Json *out, uint32_t index)
 {
     CMDBM_ODBC_BindField *bfield =
-            CMDBM_ODBC_BindFieldCreate(CMUTIL_JsonValueNull);
+            CMDBM_ODBC_BindFieldCreate(CMJsonValueNull);
     bfield->outLen = SQL_NULL_DATA;
     if (out) {
         // change to string type for output
         SQLLEN osize = 4096;
-        bfield->jtype = CMUTIL_JsonValueString;
+        bfield->jtype = CMJsonValueString;
         bfield->strVal = CMAlloc((uint64_t)osize);
         TRYODBC(stmt, SQL_HANDLE_STMT, SQLBindParameter(
                     stmt, (SQLUSMALLINT)(index+1), SQL_PARAM_OUTPUT, SQL_C_CHAR,
@@ -453,9 +453,9 @@ CMDBM_STATIC SQLHSTMT CMDBM_ODBC_ExecuteBase(
         char ibuf[20];
         CMUTIL_Json *json = CMCall(binds, Get, i);
         sprintf(ibuf, "%d", i);
-        if (CMCall(json, GetType) == CMUTIL_JsonTypeValue) {
+        if (CMCall(json, GetType) == CMJsonTypeValue) {
             CMUTIL_JsonValue *jval = (CMUTIL_JsonValue*)json;
-            CMUTIL_JsonValueType jtype = CMCall(jval, GetValueType);
+            CMJsonValueType jtype = CMCall(jval, GetValueType);
             CMUTIL_Json *out = CMCall(outs, Get, ibuf);
             // type of json value
             g_cmdbm_odbc_bindprocs[jtype](stmt, jval, array, out, i);
@@ -575,7 +575,7 @@ CMDBM_STATIC SQLHSTMT CMDBM_ODBC_SelectBase(
                                 &dsize,             // Data size of column in table
                                 &digits,            // Number of decimal digits
                                 &nullable));
-            col = CMDBM_ODBC_BindFieldCreate(CMUTIL_JsonValueNull);
+            col = CMDBM_ODBC_BindFieldCreate(CMJsonValueNull);
             col->name = CMAlloc((uint64_t)namelen+1);
             memcpy(col->name, name, (uint64_t)namelen);
             *(col->name + namelen) = 0x0;
@@ -586,7 +586,7 @@ CMDBM_STATIC SQLHSTMT CMDBM_ODBC_SelectBase(
             case SQL_REAL:
             case SQL_FLOAT:
             case SQL_DOUBLE:
-                col->jtype = CMUTIL_JsonValueDouble;
+                col->jtype = CMJsonValueDouble;
                 col->fassign = CMDBM_ODBC_ResultAssignDouble;
                 TRYODBC(stmt, SQL_HANDLE_STMT, SQLBindCol(
                             stmt, (SQLUSMALLINT)i+1, SQL_C_DOUBLE,
@@ -614,14 +614,14 @@ CMDBM_STATIC SQLHSTMT CMDBM_ODBC_SelectBase(
             case SQL_INTERVAL_HOUR_TO_MINUTE:
             case SQL_INTERVAL_HOUR_TO_SECOND:
             case SQL_INTERVAL_MINUTE_TO_SECOND:
-                col->jtype = CMUTIL_JsonValueLong;
+                col->jtype = CMJsonValueLong;
                 col->fassign = CMDBM_ODBC_ResultAssignLong;
                 TRYODBC(stmt, SQL_HANDLE_STMT, SQLBindCol(
                             stmt, (SQLUSMALLINT)i+1, SQL_C_LONG,
                             &col->longVal, sizeof(int64_t), &col->outLen));
                 break;
             case SQL_BIT:
-                col->jtype = CMUTIL_JsonValueBoolean;
+                col->jtype = CMJsonValueBoolean;
                 col->fassign = CMDBM_ODBC_ResultAssignBoolean;
                 TRYODBC(stmt, SQL_HANDLE_STMT, SQLBindCol(
                             stmt, (SQLUSMALLINT)i+1, SQL_C_LONG,
@@ -637,7 +637,7 @@ CMDBM_STATIC SQLHSTMT CMDBM_ODBC_SelectBase(
             case SQL_VARBINARY:
             case SQL_LONGVARBINARY:
             default:
-                col->jtype = CMUTIL_JsonValueString;
+                col->jtype = CMJsonValueString;
                 col->fassign = CMDBM_ODBC_ResultAssignString;
 //                TRYODBC(stmt, SQL_HANDLE_STMT, SQLBindCol(
 //                            stmt, (SQLUSMALLINT)i+1, SQL_C_CHAR, NULL,
