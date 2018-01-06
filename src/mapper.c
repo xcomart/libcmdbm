@@ -33,9 +33,9 @@ CMDBM_STATIC CMUTIL_XmlNode *CMDBM_MapperXmlCreateText(
         if (strchr(CMDBM_SPACES, *a) && a < p) {
             p--; len++;
         }
-		return CMUTIL_XmlNodeCreateWithLen(CMUTIL_XmlNodeText, p, len);
+		return CMUTIL_XmlNodeCreateWithLen(CMXmlNodeText, p, len);
 	} else {
-		return CMUTIL_XmlNodeCreateWithLen(CMUTIL_XmlNodeText, " ", 1);
+		return CMUTIL_XmlNodeCreateWithLen(CMXmlNodeText, " ", 1);
 	}
 }
 
@@ -308,8 +308,8 @@ CMDBM_NodeType CMDBM_MapperGetNodeType(CMUTIL_XmlNode *node)
 {
 	CMDBM_NodeType res;
 	CMUTIL_String *ntype = NULL;
-	CMUTIL_XmlNodeKind type = CMCall(node, GetType);
-	res = type == CMUTIL_XmlNodeTag? CMDBM_NTXmlTag:CMDBM_NTXmlText;
+	CMXmlNodeKind type = CMCall(node, GetType);
+	res = type == CMXmlNodeTag? CMDBM_NTXmlTag:CMDBM_NTXmlText;
 	ntype = CMCall(node, GetAttribute, "CMDBM_NodeType");
 	if (ntype)
         res = (CMDBM_NodeType)(CMDBM_NTXmlText +
@@ -652,7 +652,7 @@ CMDBM_STATIC CMBool CMDBM_MapperRebuildText(
 		if (s < r) break;
 
         child = CMUTIL_XmlNodeCreateWithLen(
-                    CMUTIL_XmlNodeText, r, (uint64_t)(s-r));
+                    CMXmlNodeText, r, (uint64_t)(s-r));
 		CMDBM_MapperItemProc(queries, child, CMDBM_NTSqlText);;
 		CMCall(node, AddChild, child);
 		ntype = p && s == p? CMDBM_NTSqlBind:CMDBM_NTSqlReplace;
@@ -687,7 +687,7 @@ CMDBM_STATIC CMBool CMDBM_MapperRebuildText(
 		}
 
 		t = CMUTIL_StrTrim(buf);
-		child = CMUTIL_XmlNodeCreate(CMUTIL_XmlNodeTag, t);
+		child = CMUTIL_XmlNodeCreate(CMXmlNodeTag, t);
 		CMDBM_MapperItemProc(queries, child, ntype);
 		CMCall(node, AddChild, child);
 		r++;
@@ -700,7 +700,7 @@ CMDBM_STATIC CMBool CMDBM_MapperRebuildText(
 
     p = CMCall(node, GetName);
 	child = CMUTIL_XmlNodeCreateWithLen(
-                CMUTIL_XmlNodeText, r, strlen(p)-(uint64_t)(r-p));
+                CMXmlNodeText, r, strlen(p)-(uint64_t)(r-p));
 	CMDBM_MapperItemProc(queries, child, CMDBM_NTSqlText);
 	CMCall(node, AddChild, child);
 
