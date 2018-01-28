@@ -16,7 +16,7 @@ CMUTIL_LogDefine("cmdbm.mapper")
 	CMLogErrorS(fbuf, ## __VA_ARGS__);						\
 } while(0)
 
-CMDBM_STATIC CMBool CMDBM_MapperRebuildItem(
+CMBool CMDBM_MapperRebuildItem(
 		CMUTIL_Map *queries, CMUTIL_XmlNode *node);
 CMDBM_STATIC const char *CMDBM_MapperGetId(
         CMUTIL_XmlNode *node, CMBool slient);
