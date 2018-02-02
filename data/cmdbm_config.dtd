@@ -26,6 +26,7 @@
 <!ELEMENT Mappers ((Mapper|MapperSet)+)>
 <!ATTLIST Mappers monitorInterval CDATA #IMPLIED>
 <!ELEMENT Mapper (#PCDATA)>
+<!ATTLIST Mapper file CDATA #REQUIRED>
 <!ELEMENT MapperSet (#PCDATA)>
 <!ATTLIST MapperSet
     basePath CDATA #REQUIRED

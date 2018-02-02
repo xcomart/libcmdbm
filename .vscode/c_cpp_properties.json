@@ -5,7 +5,8 @@
             "includePath": [
                 "/usr/include",
                 "/usr/local/include",
-                "../build/include",
+                "~/.local/include",
+                "${workspaceRoot}/src",
                 "${workspaceRoot}"
             ],
             "defines": [],
@@ -14,7 +15,8 @@
                 "path": [
                     "/usr/include",
                     "/usr/local/include",
-                    "../build/include",
+                    "~/.local/include",
+                    "${workspaceRoot}/src",
                     "${workspaceRoot}"
                 ],
                 "limitSymbolsToIncludedHeaders": true,
@@ -36,7 +38,8 @@
                 "/usr/lib/gcc/x86_64-linux-gnu/7/include-fixed",
                 "/usr/include/x86_64-linux-gnu",
                 "/usr/include",
-                "../build/include",
+                "~/.local/include",
+                "${workspaceRoot}/src",
                 "${workspaceRoot}"
             ],
             "defines": [],
@@ -51,7 +54,8 @@
                     "/usr/lib/gcc/x86_64-linux-gnu/7/include-fixed",
                     "/usr/include/x86_64-linux-gnu",
                     "/usr/include",
-                    "../build/include",
+                    "~/.local/include",
+                    "${workspaceRoot}/src",
                     "${workspaceRoot}"
                 ],
                 "limitSymbolsToIncludedHeaders": true,
@@ -62,7 +66,8 @@
             "name": "Win32",
             "includePath": [
                 "C:/Program Files (x86)/Microsoft Visual Studio 14.0/VC/include",
-                "../build/include",
+                "~/.local/include",
+                "${workspaceRoot}/src",
                 "${workspaceRoot}"
             ],
             "defines": [
@@ -73,7 +78,8 @@
             "browse": {
                 "path": [
                     "C:/Program Files (x86)/Microsoft Visual Studio 14.0/VC/include/*",
-                    "../build/include",
+                    "~/.local/include",
+                    "${workspaceRoot}/src",
                     "${workspaceRoot}"
                 ],
                 "limitSymbolsToIncludedHeaders": true,

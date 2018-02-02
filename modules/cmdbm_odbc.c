@@ -1,5 +1,5 @@
 
-#include "functions.h"
+#include "../src/functions.h"
 
 #ifdef CMDBM_ODBC
 
