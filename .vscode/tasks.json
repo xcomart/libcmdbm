@@ -4,9 +4,14 @@
     "version": "2.0.0",
     "tasks": [
         {
-            "label": "bulid",
+            "label": "cmake",
             "type": "shell",
-            "command": "mkdir -p ../libcmdbm-build;cd ../libcmdbm-build;qmake ../libcmdbm/libcmdbm.pro;make"
+            "command": "mkdir -p ${workspaceRoot}/build; cd ${workspaceRoot}/build; rm -r *; cmake -DCMAKE_INSTALL_PREFIX=/ .."
+        },
+        {
+            "label": "build install",
+            "type": "shell",
+            "command": "cd ${workspaceRoot}/build;make DESTDIR=~/.local VERBOSE=1 install"
         }
     ]
 }
