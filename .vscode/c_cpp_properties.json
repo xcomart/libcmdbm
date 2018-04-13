@@ -5,16 +5,20 @@
             "includePath": [
                 "/usr/include",
                 "/usr/local/include",
+                "/opt/oracle-dev/sdk/include",
+                "/usr/local/opt/libpq/include",
                 "~/.local/include",
                 "${workspaceRoot}/src",
                 "${workspaceRoot}"
             ],
-            "defines": [],
+            "defines": ["CMDBM_MYSQL","CMDBM_ORACLE","CMDBM_ODBC","CMDBM_PGSQL"],
             "intelliSenseMode": "clang-x64",
             "browse": {
                 "path": [
                     "/usr/include",
                     "/usr/local/include",
+                    "/opt/oracle-dev/sdk/include",
+                    "/usr/local/opt/libpq/include",
                     "~/.local/include",
                     "${workspaceRoot}/src",
                     "${workspaceRoot}"
@@ -25,7 +29,10 @@
             "macFrameworkPath": [
                 "/System/Library/Frameworks",
                 "/Library/Frameworks"
-            ]
+            ],
+            "compilerPath": "/usr/bin/clang",
+            "cStandard": "c11",
+            "cppStandard": "c++17"
         },
         {
             "name": "Linux",
@@ -42,7 +49,7 @@
                 "${workspaceRoot}/src",
                 "${workspaceRoot}"
             ],
-            "defines": [],
+            "defines": ["CMDBM_MYSQL","CMDBM_ORACLE","CMDBM_ODBC","CMDBM_PGSQL"],
             "intelliSenseMode": "clang-x64",
             "browse": {
                 "path": [
