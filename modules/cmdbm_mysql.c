@@ -68,6 +68,19 @@ CMDBM_STATIC const char *CMDBM_MySQL_GetTestQuery()
 	return "select 1";
 }
 
+CMDBM_STATIC char *CMDBM_MySQL_Charset(const char *ocharset, char *outbuf)
+{
+    register char *p = outbuf;
+    const register char *q = ocharset;
+    while (*q) {
+        if (strchr("-_/\\", *q) == NULL)
+            *p++ = *q;
+        q++;
+    }
+    *p = 0x0;
+    return outbuf;
+}
+
 CMDBM_STATIC void *CMDBM_MySQL_OpenConnection(
 		void *initres, CMUTIL_JsonObject *params)
 {
@@ -94,9 +107,11 @@ CMDBM_STATIC void *CMDBM_MySQL_OpenConnection(
 		sess->conn = mysql_init(NULL);
 		sess->ctx = (CMDBM_MySQLCtx*)initres;
 		if (mysql_real_connect(
-					sess->conn, shost, suser, spass, sdb, port, NULL, 0)) {
-			mysql_set_character_set(
-                        sess->conn, CMCall(sess->ctx->prcs, GetCString));
+					sess->conn, shost, suser, spass, sdb, port, NULL,
+                    CLIENT_MULTI_STATEMENTS)) {
+            char csbuf[100];
+            CMDBM_MySQL_Charset(CMCall(sess->ctx->prcs, GetCString), csbuf);
+			mysql_set_character_set(sess->conn, csbuf);
 			CMLogTrace("MySQL connection created.");
 			return sess;
 		} else {
@@ -343,8 +358,7 @@ FAILEDPOINT:
 	return stmt;
 }
 
-typedef struct CMDBM_MySQL_FieldInfo CMDBM_MySQL_FieldInfo;
-struct CMDBM_MySQL_FieldInfo {
+typedef struct CMDBM_MySQL_FieldInfo {
     char name[2048];
     double doubleVal;
     int64_t longVal;
@@ -357,7 +371,7 @@ struct CMDBM_MySQL_FieldInfo {
     my_bool isnull;
     my_bool error;
     char    dummy_padder[6];
-};
+} CMDBM_MySQL_FieldInfo;
 
 CMDBM_STATIC void CMDBM_MySQL_ResultAssignLong(
 		CMDBM_MySQL_FieldInfo *finfo, MYSQL_STMT *stmt, CMUTIL_JsonObject *row)
