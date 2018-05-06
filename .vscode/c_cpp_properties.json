@@ -42,7 +42,7 @@
                 "${workspaceRoot}/src",
                 "${workspaceRoot}"
             ],
-            "defines": [],
+            "defines": ["CMDBM_MYSQL", "CMDBM_PGSQL", "CMDBM_ODBC"],
             "intelliSenseMode": "clang-x64",
             "browse": {
                 "path": [
@@ -60,7 +60,10 @@
                 ],
                 "limitSymbolsToIncludedHeaders": true,
                 "databaseFilename": ""
-            }
+            },
+            "compilerPath": "/usr/bin/clang",
+            "cStandard": "c11",
+            "cppStandard": "c++17"
         },
         {
             "name": "Win32",
