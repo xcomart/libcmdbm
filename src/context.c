@@ -55,7 +55,7 @@ CMDBM_STATIC void CMDBM_ContextConfigClean(CMUTIL_Json *json)
 		CMUTIL_JsonObject *jobj = (CMUTIL_JsonObject*)json;
 		CMUTIL_StringArray *keys = CMCall(jobj, GetKeys);
 		for (i=0; i<CMCall(keys, GetSize); i++) {
-			CMUTIL_String *str = CMCall(keys, GetAt, i);
+			const CMUTIL_String *str = CMCall(keys, GetAt, i);
 			const char *key = CMCall(str, GetCString);
 			CMUTIL_Json *item = CMCall(jobj, Remove, key);
 			// change internal buffer to lowercase

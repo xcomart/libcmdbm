@@ -102,7 +102,7 @@ CMDBM_STATIC void CMDBM_DatabaseRemoveFile(
 	mfile = (CMDBM_MapperFile*)CMCall(idb->mfiles, Remove, fpath);
 	if (mfile) {
 		for (i=0; i<CMCall(mfile->mapperids, GetSize); i++) {
-			CMUTIL_String *sid = CMCall(mfile->mapperids, GetAt, i);
+			const CMUTIL_String *sid = CMCall(mfile->mapperids, GetAt, i);
 			const char *id = CMCall(sid, GetCString);
 			CMCall(idb->queries, Remove, id);
 		}
@@ -422,7 +422,7 @@ CMDBM_STATIC CMBool CMDBM_DatabaseInitialize(
 		idb->minterval = 30;
 	interval = idb->minterval * 1000;
 	idb->monitor = CMCall(timer, ScheduleDelayRepeat, interval, interval,
-							   CMDBM_DatabaseMapperReloader, idb);
+							   CMTrue, CMDBM_DatabaseMapperReloader, idb);
 	return idb->connpool == NULL? CMFalse:CMTrue;
 }
 
