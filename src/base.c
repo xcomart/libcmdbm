@@ -1,6 +1,8 @@
 
 #include "functions.h"
 
+#define LIBCMDBM_VER LIBCMDBM_VERSION_STRING
+
 void CMDBM_Init()
 {
     CMUTIL_Init(CMMemSystem);

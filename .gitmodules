@@ -1,0 +1,3 @@
+[submodule "libcmutils"]
+	path = libcmutils
+	url = https://github.com/xcomart/libcmutils.git

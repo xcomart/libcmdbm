@@ -1,7 +1,7 @@
 ﻿
 #include "../src/functions.h"
 
-#ifdef CMDBM_MYSQL
+#if defined(CMDBM_MYSQL) || defined(CMDBM_MARIA)
 
 CMUTIL_LogDefine("cmdbm.module.mysql")
 
@@ -357,8 +357,8 @@ FAILEDPOINT:
     if (array) CMCall(array, Destroy);
 	return stmt;
 }
-
-typedef struct CMDBM_MySQL_FieldInfo {
+typedef struct CMDBM_MySQL_FieldInfo CMDBM_MySQL_FieldInfo;
+struct CMDBM_MySQL_FieldInfo {
     char name[2048];
     double doubleVal;
     int64_t longVal;
@@ -371,7 +371,7 @@ typedef struct CMDBM_MySQL_FieldInfo {
     my_bool isnull;
     my_bool error;
     char    dummy_padder[6];
-} CMDBM_MySQL_FieldInfo;
+};
 
 CMDBM_STATIC void CMDBM_MySQL_ResultAssignLong(
 		CMDBM_MySQL_FieldInfo *finfo, MYSQL_STMT *stmt, CMUTIL_JsonObject *row)

@@ -211,7 +211,7 @@ CMDBM_STATIC CMBool CMDBM_BuildReplace(
     CMJsonType jtype = CMCall(pitem, GetType);
 	CMUTIL_UNUSED(sess, conn, bindings, after, outs, rembuf);
     if (jtype == CMJsonTypeValue) {
-		CMUTIL_String *str = CMCall(params, GetString, key);
+		const CMUTIL_String *str = CMCall(params, GetString, key);
 		CMCall(obuf, AddAnother, str);
 		return CMTrue;
 	} else {
@@ -319,7 +319,7 @@ CMDBM_STATIC CMBool CMDBM_BuildTrim(
 		if (suov) {
 			subs = CMUTIL_StringSplit(suov, "|");
 			for (i=0; i<CMCall(subs, GetSize); i++) {
-				CMUTIL_String *sd = CMCall(subs, GetAt, i);
+				const CMUTIL_String *sd = CMCall(subs, GetAt, i);
                 const char *d = CMCall(sd, GetCString);
 				q = CMDBM_RevCaseEnds(r-1, p, d);
 				if (q && (strchr(CMDBM_SQLDELIMS, *(q-1)) ||
@@ -335,7 +335,7 @@ CMDBM_STATIC CMBool CMDBM_BuildTrim(
 		if (prov) {
 			subs = CMUTIL_StringSplit(prov, "|");
 			for (i=0; i<CMCall(subs, GetSize); i++) {
-				CMUTIL_String *sd = CMCall(subs, GetAt, i);
+				const CMUTIL_String *sd = CMCall(subs, GetAt, i);
                 const char *d = CMCall(sd, GetCString);
 				q = CMDBM_CaseStarts(p, r, d);
 				if (q && (strchr(CMDBM_SQLDELIMS, *q) ||
