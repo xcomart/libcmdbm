@@ -125,7 +125,7 @@ CMDBM_STATIC void *CMDBM_PgSQL_OpenConnection(
         CMCall(sbuf, Destroy);
     }
 
-    if (PQstatus(conn) != CONNECTION_OK) {
+    if (conn && PQstatus(conn) != CONNECTION_OK) {
         CMUTIL_String *sbuf = CMUTIL_StringCreate();
         CMCall(((CMUTIL_Json*)params), ToString, sbuf, CMTrue);
         CMLogError("cannot connect to PgSQL database with parameters: "

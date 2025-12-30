@@ -87,7 +87,7 @@ CMDBM_STATIC CMDBM_Connection *CMDBM_SessionGetConnection(
 		if (db) {
 			conn = CMCall(db, GetConnection);
 			if (conn)
-				CMCall(isess->conns, Put, dbid, conn);
+				CMCall(isess->conns, Put, dbid, conn, NULL);
 			else
 				CMLogErrorS("cannot get connection from source '%s'", dbid);
 		}

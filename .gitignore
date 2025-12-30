@@ -73,3 +73,5 @@ Thumbs.db
 
 # CMake build directory
 build
+
+.idea
