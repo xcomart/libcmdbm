@@ -326,7 +326,7 @@ CMDBM_STATIC CMBool CMDBM_MapperItemAddProc(
 	CMDBM_MapperItemProc(queries, node, type);
 	qid = CMDBM_MapperGetId(node, CMFalse);
 	if (qid) {
-		CMCall(queries, Put, qid, node);
+		CMCall(queries, Put, qid, node, NULL);
 		CMLogTrace("query %s added to repository.", qid);
 		return CMTrue;
 	} else {
@@ -569,7 +569,7 @@ static CMUTIL_Map *g_cmdbm_mapper_tagfuncs = NULL;
 void CMDBM_MapperInit()
 {
 	g_cmdbm_mapper_tagfuncs = CMUTIL_MapCreate();
-#define MAPPER_FUNC(a, b)	CMCall(g_cmdbm_mapper_tagfuncs, Put, a, (void*)b);
+#define MAPPER_FUNC(a, b)	CMCall(g_cmdbm_mapper_tagfuncs, Put, a, (void*)b, NULL);
 
 	MAPPER_FUNC("mapper"	,CMDBM_MapperItemSqlMap		);
 	MAPPER_FUNC("sql"		,CMDBM_MapperItemSql		);

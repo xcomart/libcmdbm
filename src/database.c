@@ -124,7 +124,7 @@ CMDBM_STATIC CMBool CMDBM_DatabaseAddMapper(
 			if (mfile != NULL) {
 				CMCall(idb->rwlock, WriteLock);
 				CMDBM_DatabaseRemoveFile(idb, mapperfile);
-				CMCall(idb->mfiles, Put, mapperfile, mfile);
+				CMCall(idb->mfiles, Put, mapperfile, mfile, NULL);
 				CMCall(idb->queries, PutAll, queries);
 				CMCall(idb->rwlock, WriteUnlock);
 				queries = NULL;
@@ -187,7 +187,7 @@ CMDBM_STATIC CMDBM_MapperFileSet *CMDBM_DatabaseBuidlMapperSet(
 			if (CMDBM_MapperRebuildItem(fqrys, mapper)) {
 				CMDBM_MapperFile *mfile = CMDBM_MapperFileCreate(
 							fpath, mapper, CMTrue, fqrys);
-				CMCall(mset->mfileset, Add, mfile);
+				CMCall(mset->mfileset, Add, mfile, NULL);
 				CMCall(mset->queries, PutAll, fqrys);
 				fqrys = NULL;
 				succ = CMTrue;
@@ -245,7 +245,7 @@ CMDBM_STATIC CMBool CMDBM_DatabaseAddMapperSet(
 				dpath, fpattern, recursive);
 	sprintf(key, "%s;%s", dpath, fpattern);
 	CMCall(idb->rwlock, WriteLock);
-	CMCall(idb->mfsets, Put, key, mset);
+	CMCall(idb->mfsets, Put, key, mset, NULL);
 	CMCall(idb->queries, PutAll, mset->queries);
 	CMCall(idb->rwlock, WriteUnlock);
     return res;
@@ -306,9 +306,9 @@ CMDBM_STATIC void CMDBM_DatabaseMapperReloader(void *data)
 		CMUTIL_File *f = CMUTIL_FileCreate(mf->fpath);
 		if (CMCall(f, IsExists)) {
 			if (CMCall(f, ModifiedTime) != mf->lastupdt)
-				CMCall(toberep, Add, mf);
+				CMCall(toberep, Add, mf, NULL);
 		} else {
-			CMCall(toberem, Add, mf);
+			CMCall(toberem, Add, mf, NULL);
 		}
 		CMCall(f, Destroy);
 	}
@@ -368,7 +368,7 @@ CMDBM_STATIC void CMDBM_DatabaseMapperReloader(void *data)
 		}
 
 		if (ischanged)
-			CMCall(toberep, Add, mset);
+			CMCall(toberep, Add, mset, NULL);
 		CMCall(flist, Destroy);
 		CMCall(dir, Destroy);
 	}
@@ -388,7 +388,7 @@ CMDBM_STATIC void CMDBM_DatabaseMapperReloader(void *data)
 				sprintf(buf, "%s;%s", mset->dpath, mset->fpattern);
 				CMCall(idb->rwlock, WriteLock);
 				CMDBM_DatabaseRemoveMapperSet((CMDBM_Database*)idb, buf);
-				CMCall(idb->mfsets, Put, buf, mset);
+				CMCall(idb->mfsets, Put, buf, mset, NULL);
 				CMCall(idb->queries, PutAll, mset->queries);
 				CMCall(idb->rwlock, WriteUnlock);
 			}
@@ -551,9 +551,9 @@ CMDBM_Database *CMDBM_DatabaseCreateCustom(
 	res->sourceid = CMStrdup(sourceid);
 	res->dbcs = CMStrdup(dbcharset);
     res->mfiles = CMUTIL_MapCreateEx(
-                64, CMFalse, CMDBM_MapperFileDestroy);
+                64, CMFalse, CMDBM_MapperFileDestroy, 0.75f);
     res->mfsets = CMUTIL_MapCreateEx(
-                64, CMFalse, CMDBM_MapperFileSetDestroy);
+                64, CMFalse, CMDBM_MapperFileSetDestroy, 0.75f);
 	res->modif = CMAlloc(sizeof(CMDBM_ModuleInterface));
 	memcpy(res->modif, modif, sizeof(CMDBM_ModuleInterface));
 	res->queries = CMUTIL_MapCreate();

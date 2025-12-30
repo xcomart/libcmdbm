@@ -59,7 +59,7 @@ CMDBM_STATIC void CMDBM_ContextConfigClean(CMUTIL_Json *json)
 			const char *key = CMCall(str, GetCString);
 			CMUTIL_Json *item = CMCall(jobj, Remove, key);
 			// change internal buffer to lowercase
-			CMCall(str, SelfToLower);
+			CMCall((CMUTIL_String*)str, SelfToLower);
 			// change item recursively.
 			CMDBM_ContextConfigClean(item);
 			// 'key' is changed to lowercase already by calling SelfToLower.
@@ -113,7 +113,7 @@ CMDBM_STATIC CMBool CMDBM_ContextParsePoolConfig(
 		else
 			poolconf->testsql = CMStrdup("select 1");
 
-		CMCall(ictx->poolconfs, Put, sid, poolconf);
+		CMCall(ictx->poolconfs, Put, sid, poolconf, NULL);
 		res = CMTrue;
 	} else {
 		CMLogError("PoolConfig does not have 'id' attribute.");
@@ -337,7 +337,7 @@ CMDBM_STATIC CMBool CMDBM_ContextParseConfig(
 		}
 
 		dcfg = (CMUTIL_JsonObject*)item;;
-		type = CMCall(dcfg, GetString, "type");
+		type = (CMUTIL_String*)CMCall(dcfg, GetString, "type");
 		if (type == NULL) {
 			CMLogErrorS("database item does not have 'type' property.");
 			goto ENDPOINT;
@@ -416,7 +416,7 @@ CMDBM_STATIC CMBool CMDBM_ContextAddDatabase(
 		CMLogError("database(%s) initialization failed.", dbid);
 		goto ENDPOINT;
 	}
-	CMCall(ictx->databases, Put, dbid, db);
+	CMCall(ictx->databases, Put, dbid, db, NULL);
 	res = CMTrue;
 ENDPOINT:
 	return res;
@@ -477,12 +477,12 @@ CMDBM_Context *CMDBM_ContextCreate(
 	memcpy(res, &g_cmdbm_context, sizeof(CMDBM_ContextEx));
 
     res->databases = CMUTIL_MapCreateEx(
-                32, CMFalse, CMDBM_ContextDatabaseDestroyer);
+                32, CMFalse, CMDBM_ContextDatabaseDestroyer, 0.75f);
     res->poolconfs = CMUTIL_MapCreateEx(
-                16, CMFalse, CMDBM_ContextPoolConfDestroyer);
+                16, CMFalse, CMDBM_ContextPoolConfDestroyer, 0.75f);
 
     res->libctx = CMUTIL_MapCreateEx(
-                32, CMFalse, CMDBM_ContextDBLibDestroyer);
+                32, CMFalse, CMDBM_ContextDBLibDestroyer, 0.75f);
 
 	if (!CMDBM_ContextInitialize(res, confjson, progcharset, timer)) {
 		CMLogError("context initializing failed.");

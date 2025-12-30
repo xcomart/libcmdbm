@@ -195,7 +195,7 @@ CMDBM_STATIC void CMDBM_MySQL_BindLong(
 	bind->buffer_type = MYSQL_TYPE_LONGLONG;
 	bind->buffer = pval;
     bind->buffer_length = sizeof(int64_t);
-    CMCall(bufarr, Add, pval);
+    CMCall(bufarr, Add, pval, NULL);
 	CMUTIL_UNUSED(out);
 }
 
@@ -208,7 +208,7 @@ CMDBM_STATIC void CMDBM_MySQL_BindDouble(
 	bind->buffer_type = MYSQL_TYPE_DOUBLE;
 	bind->buffer = pval;
 	bind->buffer_length = sizeof(double);
-    CMCall(bufarr, Add, pval);
+    CMCall(bufarr, Add, pval, NULL);
 	CMUTIL_UNUSED(out);
 }
 
@@ -234,7 +234,7 @@ CMDBM_STATIC void CMDBM_MySQL_BindBoolean(
 	bind->buffer_type = MYSQL_TYPE_TINY;
 	bind->buffer = pval;
 	bind->buffer_length = 1;
-    CMCall(bufarr, Add, pval);
+    CMCall(bufarr, Add, pval, NULL);
 	CMUTIL_UNUSED(out);
 }
 CMDBM_STATIC void CMDBM_MySQL_BindNull(
@@ -506,7 +506,7 @@ CMDBM_STATIC MYSQL_STMT *CMDBM_MySQL_SelectBase(
 			b->error = &(finfo->error);
             finfo->bind = b;
 			finfo->sess = sess;
-            CMCall(fields, Add, finfo);
+            CMCall(fields, Add, finfo, NULL);
 		}
 		if (mysql_stmt_bind_result(stmt, *resbuf) != 0) {
 			MYSQL_LOGERROR(sess, "cannot bind result buffers.");

@@ -38,7 +38,7 @@ CMUTIL_LogDefine("cmdbm.module.odbc")
                                  wszMessage, \
                                  (SQLSMALLINT)sizeof(wszMessage), \
                                  (SQLSMALLINT *)NULL) == SQL_SUCCESS) { \
-                if (strncmp((char*)wszState, "01004", 5)) { \
+                if (strncmp((char*)wszState, "01004", 5) != 0) { \
                     CMLogError("[%5.5s] %s (%d)", \
                                 wszState, wszMessage, iError); \
                     goto FAILED;  \
@@ -262,7 +262,7 @@ CMDBM_STATIC CMBool CMDBM_ODBC_BindLong(
                 stmt, (SQLUSMALLINT)(index+1), inout, SQL_C_SBIGINT,
                 SQL_BIGINT, (uint64_t)vlen, 0, &bfield->longVal,
                 vlen, &bfield->outLen));
-    CMCall(bufarr, Add, bfield);
+    CMCall(bufarr, Add, bfield, NULL);
     return CMTrue;
 FAILED:
     CMDBM_ODBC_BindFieldDestroy(bfield);
@@ -282,7 +282,7 @@ CMDBM_STATIC CMBool CMDBM_ODBC_BindDouble(
                 stmt, (SQLUSMALLINT)(index+1), inout, SQL_C_DOUBLE,
                 SQL_DOUBLE, (uint64_t)vlen, 0, &bfield->doubleVal,
                 vlen, &bfield->outLen));
-    CMCall(bufarr, Add, bfield);
+    CMCall(bufarr, Add, bfield, NULL);
     return CMTrue;
 FAILED:
     CMDBM_ODBC_BindFieldDestroy(bfield);
@@ -306,7 +306,7 @@ CMDBM_STATIC CMBool CMDBM_ODBC_BindString(
                 stmt, (SQLUSMALLINT)(index+1), inout, SQL_C_CHAR,
                 SQL_VARCHAR, (uint64_t)CMCall(str, GetSize), 0, bfield->strVal,
                 osize, &bfield->outLen));
-    CMCall(bufarr, Add, bfield);
+    CMCall(bufarr, Add, bfield, NULL);
     return CMTrue;
 FAILED:
     CMDBM_ODBC_BindFieldDestroy(bfield);
@@ -326,7 +326,7 @@ CMDBM_STATIC CMBool CMDBM_ODBC_BindBoolean(
                 stmt, (SQLUSMALLINT)(index+1), inout, SQL_C_SSHORT,
                 SQL_SMALLINT, (uint64_t)vlen, 0, &bfield->boolVal,
                 vlen, &bfield->outLen));
-    CMCall(bufarr, Add, bfield);
+    CMCall(bufarr, Add, bfield, NULL);
     return CMTrue;
 FAILED:
     CMDBM_ODBC_BindFieldDestroy(bfield);
@@ -354,7 +354,7 @@ CMDBM_STATIC CMBool CMDBM_ODBC_BindNull(
                     stmt, (SQLUSMALLINT)(index+1), SQL_PARAM_INPUT, SQL_C_CHAR,
                     SQL_VARCHAR, 1, 0, 0, 0, &bfield->outLen));
     }
-    CMCall(bufarr, Add, bfield);
+    CMCall(bufarr, Add, bfield, NULL);
     CMUTIL_UNUSED(jval, out);
     return CMTrue;
 FAILED:
@@ -579,7 +579,7 @@ CMDBM_STATIC SQLHSTMT CMDBM_ODBC_SelectBase(
             col->name = CMAlloc((uint64_t)namelen+1);
             memcpy(col->name, name, (uint64_t)namelen);
             *(col->name + namelen) = 0x0;
-            CMCall(fields, Add, col);
+            CMCall(fields, Add, col, NULL);
             switch (dtype) {
             case SQL_DECIMAL:
             case SQL_NUMERIC:
