@@ -6,12 +6,14 @@
 void CMDBM_Init()
 {
     CMUTIL_Init(CMMemSystem);
-	CMDBM_MapperInit();
+    CMDBM_MapperInit();
+    CMDBM_DatabaseInit();
 }
 
 void CMDBM_Clear()
 {
-	CMDBM_MapperClear();
+    CMDBM_DatabaseClear();
+    CMDBM_MapperClear();
     CMUTIL_Clear();
 }
 
