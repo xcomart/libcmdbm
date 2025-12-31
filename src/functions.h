@@ -18,36 +18,39 @@
 #if defined(DEBUG)
 # define CMDBM_STATIC
 #else
-# define CMDBM_STATIC	static
+# define CMDBM_STATIC    static
 #endif
 
-#define CMDBM_SPACES		" \r\n\t"
-#define CMDBM_SQLDELIMS		" \r\r\n\t{}[]+%\'./():,*\"=<>@;-|!~^"
+#define CMDBM_SPACES        " \r\n\t"
+#define CMDBM_SQLDELIMS        " \r\r\n\t{}[]+%\'./():,*\"=<>@;-|!~^"
 
 
 void CMDBM_MapperInit(void);
 void CMDBM_MapperClear(void);
 
+void CMDBM_DatabaseInit(void);
+void CMDBM_DatabaseClear(void);
 
 CMBool CMDBM_MapperRebuildItem(
-		CMUTIL_Map *queries,
-		CMUTIL_XmlNode *node);
+        CMUTIL_Map *queries,
+        CMUTIL_XmlNode *node);
 
 CMBool CMDBM_BuildNode(
-		CMDBM_Session *sess,
-		CMDBM_Connection *conn,
-		CMUTIL_XmlNode *node,
-		CMUTIL_JsonObject *params,
-		CMUTIL_JsonArray *bindings,
-		CMUTIL_List *after,
-		CMUTIL_String *obuf,
-		CMUTIL_JsonObject *outs,
-		CMUTIL_List *rembuf);
+        CMDBM_Session *sess,
+        CMDBM_Connection *conn,
+        CMUTIL_XmlNode *node,
+        CMUTIL_JsonObject *params,
+        CMUTIL_JsonArray *bindings,
+        CMUTIL_List *after,
+        CMUTIL_String *obuf,
+        CMUTIL_JsonObject *outs,
+        CMUTIL_List *rembuf);
 
 CMDBM_Session *CMDBM_SessionCreate(
-		CMDBM_ContextEx *ctx);
+        CMDBM_ContextEx *ctx);
 
-CMDBM_DBType CMDBM_DatabaseType(const char *dbtype);
+CMDBM_ModuleInterface *CMDBM_GetDBMSInterface(
+    const char *dbmskey);
 
 #endif // FUNCTIONS_H__
 

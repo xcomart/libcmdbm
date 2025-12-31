@@ -3,7 +3,11 @@
 
 #if defined(CMDBM_MYSQL) || defined(CMDBM_MARIA)
 
+#if defined(CMDBM_MARIA)
+CMUTIL_LogDefine("cmdbm.module.maria")
+#else
 CMUTIL_LogDefine("cmdbm.module.mysql")
+#endif
 
 #include <mysql.h>
 
@@ -115,14 +119,15 @@ CMDBM_STATIC void *CMDBM_MySQL_OpenConnection(
 			CMLogTrace("MySQL connection created.");
 			return sess;
 		} else {
-			MYSQL_LOGERROR(sess, "connot connect to database");
+			MYSQL_LOGERROR(sess, "cannot connect to database");
 			mysql_close(sess->conn);
 			CMFree(sess);
 			return NULL;
 		}
 	} else {
 		CMLogError("MySQL connection requires "
-				   "'host', 'user', 'password', 'database'");
+				   "'host', 'user', 'password', 'database' "
+				   "and optional 'port'");
 		return NULL;
 	}
 }
@@ -143,6 +148,10 @@ CMDBM_STATIC CMBool CMDBM_MySQL_StartTransaction(
 		void *initres, void *connection)
 {
 	CMDBM_MySQLSession *sess = (CMDBM_MySQLSession*)connection;
+	if (sess == NULL || sess->conn == NULL) {
+		CMLogError("Invalid parameter.");
+        return CMFalse;
+	}
 	CMUTIL_UNUSED(initres);
 	if (mysql_query(sess->conn, "SET autocommit=0")) {
 		MYSQL_LOGERROR(sess,
@@ -161,6 +170,10 @@ CMDBM_STATIC void CMDBM_MySQL_EndTransaction(
 		void *initres, void *connection)
 {
 	CMDBM_MySQLSession *sess = (CMDBM_MySQLSession*)connection;
+	if (sess == NULL || sess->conn == NULL) {
+		CMLogError("Invalid parameter.");
+		return;
+	}
 	mysql_query(sess->conn, "SET autocommit=1");
 	CMUTIL_UNUSED(initres);
 }
@@ -169,6 +182,10 @@ CMDBM_STATIC CMBool CMDBM_MySQL_CommitTransaction(
 		void *initres, void *connection)
 {
 	CMDBM_MySQLSession *sess = (CMDBM_MySQLSession*)connection;
+	if (sess == NULL || sess->conn == NULL) {
+		CMLogError("Invalid parameter.");
+		return CMFalse;
+	}
 	CMUTIL_UNUSED(initres);
 	if (mysql_query(sess->conn, "COMMIT"))
         return CMTrue;
@@ -181,6 +198,10 @@ CMDBM_STATIC void CMDBM_MySQL_RollbackTransaction(
 		void *initres, void *connection)
 {
 	CMDBM_MySQLSession *sess = (CMDBM_MySQLSession*)connection;
+	if (sess == NULL || sess->conn == NULL) {
+		CMLogError("Invalid parameter.");
+		return;
+	}
 	if (mysql_query(sess->conn, "ROLLBACK"))
 		MYSQL_LOGERROR(sess, "rollback failed.");
 	CMUTIL_UNUSED(initres);
@@ -217,7 +238,7 @@ CMDBM_STATIC void CMDBM_MySQL_BindString(
 		CMUTIL_Array *bufarr, CMUTIL_Json *out)
 {
 	char buf[4096] = {0,};
-    CMUTIL_String *sval = CMCall(jval, GetString);
+    CMUTIL_String *sval = (CMUTIL_String*)CMCall(jval, GetString);
     if (out) CMCall(sval, AddNString, buf, 4096);
 	bind->buffer_type = MYSQL_TYPE_VARCHAR;
     bind->buffer = (void*)CMCall(sval, GetCString);
@@ -273,7 +294,7 @@ CMDBM_STATIC void CMDBM_MySQL_SetOutValue(
             CMCall(jval, SetDouble, (double)*((double*)bind->buffer));
 			break;
 		case MYSQL_TYPE_VARCHAR:
-            temp = CMCall(jval, GetString);
+            temp = (CMUTIL_String*)CMCall(jval, GetString);
             CMCall(temp, CutTailOff, (size_t)bind->length_value);
 			break;
 		default:
@@ -334,7 +355,7 @@ CMDBM_STATIC MYSQL_STMT *CMDBM_MySQL_ExecuteBase(
 		if (outs) {
             CMUTIL_StringArray *keys = CMCall(outs, GetKeys);
             for (i=0; i<CMCall(keys, GetSize); i++) {
-                CMUTIL_String *sidx = CMCall(keys, GetAt, i);
+                CMUTIL_String *sidx = (CMUTIL_String*)CMCall(keys, GetAt, i);
                 const char *cidx = CMCall(sidx, GetCString);
 				CMUTIL_JsonValue *jval =
                         (CMUTIL_JsonValue*)CMCall(outs, Get, cidx);

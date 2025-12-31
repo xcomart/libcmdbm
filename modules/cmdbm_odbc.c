@@ -293,7 +293,7 @@ CMDBM_STATIC CMBool CMDBM_ODBC_BindString(
         SQLHSTMT stmt, CMUTIL_JsonValue *jval,
         CMUTIL_Array *bufarr, CMUTIL_Json *out, uint32_t index)
 {
-    CMUTIL_String *str = CMCall(jval, GetString);
+    CMUTIL_String *str = (CMUTIL_String*)CMCall(jval, GetString);
     SQLLEN osize = (SQLLEN)CMCall(str, GetSize);
     CMDBM_ODBC_BindField *bfield =
             CMDBM_ODBC_BindFieldCreate(CMJsonValueString);
@@ -470,12 +470,12 @@ CMDBM_STATIC SQLHSTMT CMDBM_ODBC_ExecuteBase(
     if (binds && outs) {
         CMUTIL_StringArray *keys = CMCall(outs, GetKeys);
         for (i=0; i<CMCall(keys, GetSize); i++) {
-            CMUTIL_String *sidx = CMCall(keys, GetAt, i);
+            const CMUTIL_String *sidx = CMCall(keys, GetAt, i);
             const char *cidx = CMCall(sidx, GetCString);
             CMUTIL_JsonValue *jval =
                     (CMUTIL_JsonValue*)CMCall(outs, Get, cidx);
             CMDBM_ODBC_BindField *bfield = NULL;
-            uint32_t idx = (uint32_t)atoi(cidx);
+            uint32_t idx = strtol(cidx, NULL, 10);
             bfield = (CMDBM_ODBC_BindField*)CMCall(array, GetAt, idx);
             CMDBM_ODBC_SetOutValue(bfield, jval);
         }
@@ -516,7 +516,7 @@ CMDBM_STATIC void CMDBM_ODBC_ResultAssignString(
     CMUTIL_String *strbuf = NULL;
     SQLCHAR buf[1024];
     CMCall(row, PutString, finfo->name, "");
-    strbuf = CMCall(row, GetString, finfo->name);
+    strbuf = (CMUTIL_String*)CMCall(row, GetString, finfo->name);
     while (CMTrue) {
         sr = SQLGetData(stmt, idx, SQL_C_CHAR, buf, sizeof(buf), &size);
         if (sr == SQL_NO_DATA_FOUND)
