@@ -283,6 +283,7 @@ CMDBM_STATIC void CMDBM_MySQL_SetOutValue(
         CMCall(jval, SetNull);
 	} else {
 		CMUTIL_String *temp;
+	    size_t len;
 		switch (bind->buffer_type) {
 		case MYSQL_TYPE_TINY:
             CMCall(jval, SetBoolean, (CMBool)*((char*)bind->buffer));
@@ -295,7 +296,8 @@ CMDBM_STATIC void CMDBM_MySQL_SetOutValue(
 			break;
 		case MYSQL_TYPE_VARCHAR:
             temp = (CMUTIL_String*)CMCall(jval, GetString);
-            CMCall(temp, CutTailOff, (size_t)bind->length_value);
+		    len = CMCall(temp, GetSize) - bind->length_value;
+            CMCall(temp, CutTailOff, len);
 			break;
 		default:
 			CMLogErrorS("unknown type %d", bind->buffer_type);
@@ -359,7 +361,7 @@ CMDBM_STATIC MYSQL_STMT *CMDBM_MySQL_ExecuteBase(
                 const char *cidx = CMCall(sidx, GetCString);
 				CMUTIL_JsonValue *jval =
                         (CMUTIL_JsonValue*)CMCall(outs, Get, cidx);
-				int idx = atoi(cidx);
+				long idx = strtol(cidx, NULL, 10);
 				CMDBM_MySQL_SetOutValue(&buffers[idx], jval);
 			}
             CMCall(keys, Destroy);
