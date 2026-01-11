@@ -301,6 +301,7 @@ CMDBM_STATIC CMBool CMDBM_ODBC_BindString(
     if (out && osize < 4096)
         osize = 4096;
     bfield->strVal = CMAlloc((uint64_t)osize+1);
+    bfield->outLen = osize;
     memcpy(bfield->strVal, CMCall(str, GetCString), CMCall(str, GetSize)+1);
     TRYODBC(stmt, SQL_HANDLE_STMT, SQLBindParameter(
                 stmt, (SQLUSMALLINT)(index+1), inout, SQL_C_CHAR,

@@ -349,7 +349,7 @@ CMDBM_STATIC CMBool CMDBM_Oracle_BindString(
 {
     char buf[4096] = {0,};
     sb4 status;
-    CMUTIL_String *val = CMCall(jval, GetString);
+    CMUTIL_String *val = (CMUTIL_String*)CMCall(jval, GetString);
     if (out) {
         CMDBM_OracleColumn *item = CMAlloc(sizeof(CMDBM_OracleColumn));
         memset(item, 0x0, sizeof(CMDBM_OracleColumn));
@@ -493,8 +493,8 @@ CMDBM_STATIC void CMDBM_Oracle_SetOutValue(
             CMCall(jval, SetDouble, (double)*((double*)col->buffer));
             break;
         case CMJsonValueString:
-            temp = CMCall(jval, GetString);
-            len = strlen(CMCall(temp, GetCString));
+            temp = (CMUTIL_String*)CMCall(jval, GetString);
+            len = CMCall(temp, GetSize) - strlen(CMCall(temp, GetCString));
             CMCall(temp, CutTailOff, len);
             break;
         }
