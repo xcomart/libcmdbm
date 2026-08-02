@@ -91,9 +91,12 @@ CMDBM_STATIC CMDBM_Cursor *CMDBM_ConnectionOpenCursor(
         CMUTIL_JsonObject *outs)
 {
     CMDBM_Connection_Internal *iconn = (CMDBM_Connection_Internal*)conn;
+    CMDBM_Cursor_Internal *res;
     void *csr = iconn->modif->OpenCursor(
                 iconn->initres, iconn->connection, query, binds, outs);
-    CMDBM_Cursor_Internal *res = CMAlloc(sizeof(CMDBM_Cursor_Internal));
+    if (csr == NULL)
+        return NULL;
+    res = CMAlloc(sizeof(CMDBM_Cursor_Internal));
     memset(res, 0x0, sizeof(CMDBM_Cursor_Internal));
     res->base.GetNext = CMDBM_CursorGetNext;
     res->base.Close = CMDBM_CursorClose;

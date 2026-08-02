@@ -11,8 +11,16 @@ CMUTIL_LogDefine("cmdbm.module.mysql")
 
 #include <mysql.h>
 
+// my_bool was removed from MySQL client headers in 8.0
+// (MariaDB still provides it).
+#if !defined(MARIADB_BASE_VERSION) && defined(MYSQL_VERSION_ID) && \
+    MYSQL_VERSION_ID >= 80000
+# include <stdbool.h>
+typedef bool my_bool;
+#endif
+
 #define MYSQL_LOGERROR(sess,...) do {\
-	char buf[4096]; sprintf(buf,##__VA_ARGS__);\
+	char buf[4096]; snprintf(buf,sizeof(buf),##__VA_ARGS__);\
     if (sess && sess->conn) {\
 		CMLogError("%s: %s", buf, mysql_error(sess->conn));\
 	} else CMLogError("%s", buf);\
@@ -74,8 +82,8 @@ CMDBM_STATIC const char *CMDBM_MySQL_GetTestQuery()
 
 CMDBM_STATIC char *CMDBM_MySQL_Charset(const char *ocharset, char *outbuf)
 {
-    register char *p = outbuf;
-    const register char *q = ocharset;
+    char *p = outbuf;
+    const char *q = ocharset;
     while (*q) {
         if (strchr("-_/\\", *q) == NULL)
             *p++ = *q;
@@ -109,6 +117,11 @@ CMDBM_STATIC void *CMDBM_MySQL_OpenConnection(
 		CMDBM_MySQLSession *sess = CMAlloc(sizeof(CMDBM_MySQLSession));
 		memset(sess, 0x0, sizeof(CMDBM_MySQLSession));
 		sess->conn = mysql_init(NULL);
+		if (sess->conn == NULL) {
+			CMLogError("mysql_init() failed. (out of memory)");
+			CMFree(sess);
+			return NULL;
+		}
 		sess->ctx = (CMDBM_MySQLCtx*)initres;
 		if (mysql_real_connect(
 					sess->conn, shost, suser, spass, sdb, port, NULL,
@@ -187,11 +200,11 @@ CMDBM_STATIC CMBool CMDBM_MySQL_CommitTransaction(
 		return CMFalse;
 	}
 	CMUTIL_UNUSED(initres);
-	if (mysql_query(sess->conn, "COMMIT"))
-        return CMTrue;
-	else
+	if (mysql_query(sess->conn, "COMMIT")) {
 		MYSQL_LOGERROR(sess, "commit failed.");
-    return CMFalse;
+		return CMFalse;
+	}
+    return CMTrue;
 }
 
 CMDBM_STATIC void CMDBM_MySQL_RollbackTransaction(
@@ -316,6 +329,11 @@ CMDBM_STATIC MYSQL_STMT *CMDBM_MySQL_ExecuteBase(
 	MYSQL_BIND *buffers = NULL;
 	CMUTIL_Array *array = NULL;
 
+	if (stmt == NULL) {
+		MYSQL_LOGERROR(sess, "mysql_stmt_init() failed.");
+		return NULL;
+	}
+
 	if (binds) {
 		array = CMUTIL_ArrayCreateEx(
                     CMCall(binds, GetSize), NULL, CMFree);
@@ -362,7 +380,11 @@ CMDBM_STATIC MYSQL_STMT *CMDBM_MySQL_ExecuteBase(
 				CMUTIL_JsonValue *jval =
                         (CMUTIL_JsonValue*)CMCall(outs, Get, cidx);
 				long idx = strtol(cidx, NULL, 10);
-				CMDBM_MySQL_SetOutValue(&buffers[idx], jval);
+				if (idx >= 0 && (size_t)idx < bsize)
+					CMDBM_MySQL_SetOutValue(&buffers[idx], jval);
+				else
+					CMLogError("out parameter index(%ld) is "
+							   "out of bind range.", idx);
 			}
             CMCall(keys, Destroy);
 		}
@@ -469,7 +491,7 @@ CMDBM_STATIC MYSQL_STMT *CMDBM_MySQL_SelectBase(
 			goto FAILEDPOINT;
 		}
 
-        fieldcnt = (int)mysql_field_count(sess->conn);
+        fieldcnt = (int)mysql_num_fields(*meta);
 		ofields = mysql_fetch_fields(*meta);
         *resbuf = CMAlloc(sizeof(MYSQL_BIND) * (uint64_t)fieldcnt);
         memset(*resbuf, 0x0, sizeof(MYSQL_BIND) * (uint64_t)fieldcnt);
@@ -587,7 +609,11 @@ CMDBM_STATIC CMUTIL_JsonObject *CMDBM_MySQL_GetRow(
     CMBool succ = CMFalse;
 
 	if (stmt) {
-		if (mysql_stmt_fetch(stmt) != 0) {
+		// MYSQL_DATA_TRUNCATED is expected for string columns:
+		// they are bound with a zero-length buffer and fetched
+		// afterwards with mysql_stmt_fetch_column().
+		int frv = mysql_stmt_fetch(stmt);
+		if (frv != 0 && frv != MYSQL_DATA_TRUNCATED) {
 			MYSQL_LOGERROR(sess, "cannot fetch row.");
 			goto FAILEDPOINT;
 		}
@@ -731,10 +757,6 @@ CMDBM_STATIC void *CMDBM_MySQL_OpenCursor(
 	}
 	if (meta)
 		mysql_free_result(meta);
-	if (stmt) {
-		mysql_stmt_free_result(stmt);
-		mysql_stmt_close(stmt);
-	}
 	if (fields)
         CMCall(fields, Destroy);
 	if (resb) CMFree(resb);
@@ -746,7 +768,6 @@ CMDBM_STATIC void CMDBM_MySQL_CloseCursor(void *cursor)
 {
 	CMDBM_MySQL_Cursor *csr = (CMDBM_MySQL_Cursor*)cursor;
 	if (csr) {
-        if (csr->fields) CMCall(csr->fields, Destroy);
 		if (csr->meta) mysql_free_result(csr->meta);
 		if (csr->stmt) {
 			mysql_stmt_free_result(csr->stmt);
@@ -763,7 +784,8 @@ CMDBM_STATIC CMUTIL_JsonObject *CMDBM_MySQL_CursorNextRow(void *cursor)
 {
 	CMDBM_MySQL_Cursor *csr = (CMDBM_MySQL_Cursor*)cursor;
 	if (csr) {
-		if (mysql_stmt_fetch(csr->stmt) == 0) {
+		int frv = mysql_stmt_fetch(csr->stmt);
+		if (frv == 0 || frv == MYSQL_DATA_TRUNCATED) {
 			CMUTIL_JsonObject *res = CMUTIL_JsonObjectCreate();
 			CMUTIL_MySQL_RowSetFields(csr->fields, csr->stmt, res);
 			return res;

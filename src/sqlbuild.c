@@ -8,7 +8,7 @@ CMDBM_STATIC const char* CMDBM_RevCaseEnds(
 {
     int ed = (int)strlen(n);
     const char *p = n + ed - 1;
-    while (limit < p && n < q && toupper(*q) == toupper(*p)) {
+    while (limit < q && n < p && toupper(*q) == toupper(*p)) {
         q--; p--;
     }
     return n == p && toupper(*q) == toupper(*p)? q:NULL;
@@ -148,14 +148,14 @@ CMDBM_STATIC CMBool CMDBM_BuildParamSet(
         if (type) stype = CMCall(type, GetCString);
         if (strcasecmp(stype, "string") == 0) {
             CMCall(params, PutString, sname, sval);
-        } else if (strcasecmp(stype, "int") ||
-                   strcasecmp(stype, "long")) {
+        } else if (strcasecmp(stype, "int") == 0 ||
+                   strcasecmp(stype, "long") == 0) {
             CMCall(params, PutLong, sname, atoll(sval));
-        } else if (strcasecmp(stype, "float") ||
-                   strcasecmp(stype, "double")) {
+        } else if (strcasecmp(stype, "float") == 0 ||
+                   strcasecmp(stype, "double") == 0) {
             CMCall(params, PutDouble, sname, atof(sval));
         } else {
-            CMLogErrorS("unknown parameter type: %s", sval);
+            CMLogErrorS("unknown parameter type: %s", stype);
             return CMFalse;
         }
         return CMTrue;
@@ -179,15 +179,18 @@ CMDBM_STATIC CMBool CMDBM_BuildOutParam(
     char pbuf[1024];
     uint32_t idx = (uint32_t)CMCall(bindings, GetSize);
     CMUTIL_Json *value = CMCall(params, Get, key);
-    CMUTIL_JsonValue *jval = (CMUTIL_JsonValue*)value;
-    CMJsonValueType vtype = CMCall(jval, GetValueType);
+    CMUTIL_JsonValue *jval;
+    CMJsonValueType vtype;
 
-    CMCall(conn, GetBindString, idx, pbuf, vtype);
-    CMCall(obuf, AddString, pbuf);
     if (!value) {
         CMCall(params, PutString, key, "1");
         value = CMCall(params, Get, key);
     }
+    jval = (CMUTIL_JsonValue*)value;
+    vtype = CMCall(jval, GetValueType);
+
+    CMCall(conn, GetBindString, idx, pbuf, vtype);
+    CMCall(obuf, AddString, pbuf);
     sprintf(pbuf, "%d", idx);
     CMCall(outs, Put, pbuf, value);
     CMCall(bindings, Add, value);
@@ -297,10 +300,10 @@ CMDBM_STATIC CMBool CMDBM_BuildTrim(
         CMUTIL_String *ssufx = CMCall(node,GetAttribute,"suffix");
         CMUTIL_String *sprov = CMCall(node,GetAttribute,"prefixOverrides");
         CMUTIL_String *ssuov = CMCall(node,GetAttribute,"suffixOverrides");
-        const char *prfx = CMCall(sprfx, GetCString);
-        const char *sufx = CMCall(ssufx, GetCString);
-        const char *prov = CMCall(sprov, GetCString);
-        const char *suov = CMCall(ssuov, GetCString);
+        const char *prfx = sprfx? CMCall(sprfx, GetCString):NULL;
+        const char *sufx = ssufx? CMCall(ssufx, GetCString):NULL;
+        const char *prov = sprov? CMCall(sprov, GetCString):NULL;
+        const char *suov = ssuov? CMCall(ssuov, GetCString):NULL;
 
         const char *p = CMCall(sbuf, GetCString);
         const char *q = p, *r;
@@ -313,7 +316,7 @@ CMDBM_STATIC CMBool CMDBM_BuildTrim(
         // remove preceeding spaces
         while (*p && strchr(CMDBM_SPACES, *p)) p++;
         // remove trailing spaces
-        while (strchr(CMDBM_SPACES, *(r-1)) && p < (r-1)) r--;
+        while (p < (r-1) && strchr(CMDBM_SPACES, *(r-1))) r--;
 
         // override suffix
         if (suov) {
@@ -322,7 +325,7 @@ CMDBM_STATIC CMBool CMDBM_BuildTrim(
                 const CMUTIL_String *sd = CMCall(subs, GetAt, i);
                 const char *d = CMCall(sd, GetCString);
                 q = CMDBM_RevCaseEnds(r-1, p, d);
-                if (q && (strchr(CMDBM_SQLDELIMS, *(q-1)) ||
+                if (q && (q == p || strchr(CMDBM_SQLDELIMS, *(q-1)) ||
                           strchr(CMDBM_SQLDELIMS, *d))) {
                     r = q;
                     break;
@@ -424,23 +427,33 @@ CMDBM_STATIC CMBool CMDBM_BuildForeach(
     for (i=0; i<size; i++) {
         CMUTIL_Json *item = CMCall(collection, Get, i);
         CMUTIL_Json *idx;
-        CMCall(params, Put, sitemkey, item);
-        CMCall(params, PutLong, sindexkey, i);
+        CMBool bres;
+        if (sitemkey) CMCall(params, Put, sitemkey, item);
+        if (sindexkey) CMCall(params, PutLong, sindexkey, i);
 
         // build child nodes
-        if (!CMDBM_BuildChildren(sess, conn, node, params, bindings,
-                                 after, obuf, outs, rembuf))
+        bres = CMDBM_BuildChildren(sess, conn, node, params, bindings,
+                                   after, obuf, outs, rembuf);
+
+        // remove item for not be destroyed
+        // (must be done even when build failed, otherwise the item
+        //  is owned by both collection and params -> double destroy).
+        if (sitemkey) CMCall(params, Remove, sitemkey);
+
+        // save index item to destroy after execution.
+        if (sindexkey) {
+            idx = CMCall(params, Remove, sindexkey);
+            if (idx) CMCall(rembuf, AddTail, idx);
+        }
+
+        if (!bres) {
+            if (itembackup) CMCall(params, Put, sitemkey, itembackup);
+            if (indexbackup) CMCall(params, Put, sindexkey, indexbackup);
             return CMFalse;
+        }
 
         if (ssep && i < (size-1))
             CMCall(obuf, AddAnother, ssep);
-
-        // remove item for not be destroyed.
-        CMCall(params, Remove, sitemkey);
-
-        // save index item to destroy after execution.
-        idx = CMCall(params, Remove, sindexkey);
-        CMCall(rembuf, AddTail, idx);
     }
     if (sclose) CMCall(obuf, AddAnother, sclose);
 
@@ -558,7 +571,7 @@ CMDBM_STATIC CMBool CMDBM_BuildSelectKey(
     CMUTIL_UNUSED(bindings, obuf);
 
     stmp = CMCall(node, GetAttribute, "order");
-    order = CMCall(stmp, GetCString);
+    order = stmp? CMCall(stmp, GetCString):NULL;
     if (order && strcasecmp(order, "before") == 0) {
         beval = CMTrue;
     } else {
@@ -571,6 +584,12 @@ CMDBM_STATIC CMBool CMDBM_BuildSelectKey(
     }
     if (beval) {
         stmp = CMCall(node, GetAttribute, "keyProperty");
+        if (stmp == NULL) {
+            CMLogErrorS("selectKey tag must have keyProperty attribute.");
+            CMUTIL_JsonDestroy(nbinds);
+            CMCall(sbuf, Destroy);
+            return CMFalse;
+        }
         key = CMCall(stmp, GetCString);
 
         res = CMDBM_BuildChildren(
@@ -587,6 +606,13 @@ CMDBM_STATIC CMBool CMDBM_BuildSelectKey(
         }
     } else {
         res = CMTrue;
+    }
+    // bind values are references owned by params:
+    // detach them before destroying the array.
+    {
+        size_t bcnt;
+        while ((bcnt = CMCall(nbinds, GetSize)) > 0)
+            CMCall(nbinds, Remove, (uint32_t)(bcnt-1));
     }
     CMUTIL_JsonDestroy(nbinds);
     CMCall(sbuf, Destroy);
