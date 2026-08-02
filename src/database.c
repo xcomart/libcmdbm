@@ -233,10 +233,14 @@ CMDBM_STATIC CMDBM_MapperFileSet *CMDBM_DatabaseBuidlMapperSet(
             if (CMDBM_MapperRebuildItem(fqrys, mapper)) {
                 CMDBM_MapperFile *mfile = CMDBM_MapperFileCreate(
                             fpath, mapper, CMTrue, fqrys);
-                CMCall(mset->mfileset, Add, mfile, NULL);
-                CMCall(mset->queries, PutAll, fqrys);
-                fqrys = NULL;
-                succ = CMTrue;
+                if (mfile) {
+                    CMCall(mset->mfileset, Add, mfile, NULL);
+                    CMCall(mset->queries, PutAll, fqrys);
+                    fqrys = NULL;
+                    succ = CMTrue;
+                } else {
+                    CMLogError("mapper file not exists(%s). skipped.", fpath);
+                }
             } else {
                 CMLogError("invalid mapper structure(%s). skipped.", fpath);
             }
@@ -273,7 +277,7 @@ CMDBM_STATIC void CMDBM_DatabaseRemoveMapperSet(
             CMCall(qkeys, Destroy);
         }
         CMCall(idb->mfsets, Remove, key);
-        CMDBM_MapperFileDestroy(mset);
+        CMDBM_MapperFileSetDestroy(mset);
     } else {
         CMLogWarn("mapper set(%s) does not exists in this database",
                   key);
@@ -289,7 +293,7 @@ CMDBM_STATIC CMBool CMDBM_DatabaseAddMapperSet(
     CMDBM_Database_Internal *idb = (CMDBM_Database_Internal*)db;
     CMDBM_MapperFileSet *mset = CMDBM_DatabaseBuidlMapperSet(
                 dpath, fpattern, recursive);
-    sprintf(key, "%s;%s", dpath, fpattern);
+    snprintf(key, sizeof(key), "%s;%s", dpath, fpattern);
     CMCall(idb->rwlock, WriteLock);
     CMCall(idb->mfsets, Put, key, mset, NULL);
     CMCall(idb->queries, PutAll, mset->queries);
@@ -361,8 +365,9 @@ CMDBM_STATIC void CMDBM_DatabaseMapperReloader(void *data)
     CMCall(iter, Destroy);
 
     // replace existing mapper
+    // (no explicit lock here: AddMapper takes the write lock itself,
+    //  and the rwlock is not recursive - locking here would deadlock)
     if (CMCall(toberep, GetSize) > 0) {
-        CMCall(idb->rwlock, WriteLock);
         while (CMCall(toberep, GetSize) > 0) {
             CMDBM_MapperFile *mf =
                     (CMDBM_MapperFile*)CMCall(toberep, RemoveAt, 0);
@@ -372,7 +377,6 @@ CMDBM_STATIC void CMDBM_DatabaseMapperReloader(void *data)
             CMDBM_DatabaseAddMapper((CMDBM_Database*)idb, fpath);
             CMFree(fpath);
         }
-        CMCall(idb->rwlock, WriteUnlock);
     }
 
     // remove existing mapper
@@ -431,11 +435,13 @@ CMDBM_STATIC void CMDBM_DatabaseMapperReloader(void *data)
                         mset->dpath, mset->fpattern, mset->recursive);
             if (newset) {
                 char buf[1024];
-                sprintf(buf, "%s;%s", mset->dpath, mset->fpattern);
+                snprintf(buf, sizeof(buf), "%s;%s",
+                         mset->dpath, mset->fpattern);
                 CMCall(idb->rwlock, WriteLock);
+                // frees the old mset - do not touch it afterwards
                 CMDBM_DatabaseRemoveMapperSet((CMDBM_Database*)idb, buf);
-                CMCall(idb->mfsets, Put, buf, mset, NULL);
-                CMCall(idb->queries, PutAll, mset->queries);
+                CMCall(idb->mfsets, Put, buf, newset, NULL);
+                CMCall(idb->queries, PutAll, newset->queries);
                 CMCall(idb->rwlock, WriteUnlock);
             }
         }
@@ -535,13 +541,15 @@ CMDBM_STATIC void CMDBM_DatabaseDestroy(
 {
     CMDBM_Database_Internal *idb = (CMDBM_Database_Internal*)db;
     if (idb) {
+        // cancel the reloader task first: it must not run against
+        // the maps being destroyed below.
+        if (idb->monitor) CMCall(idb->monitor, Cancel);
         if (idb->sourceid) CMFree(idb->sourceid);
         if (idb->dbcs) CMFree(idb->dbcs);
         if (idb->pgcs) CMFree(idb->pgcs);
         if (idb->queries) CMCall(idb->queries, Destroy);
         if (idb->mfiles) CMCall(idb->mfiles, Destroy);
         if (idb->mfsets) CMCall(idb->mfsets, Destroy);
-        if (idb->monitor) CMCall(idb->monitor, Cancel);
         if (idb->connpool) CMCall(idb->connpool, Destroy);
         if (idb->params) CMUTIL_JsonDestroy(idb->params);
         if (idb->testqry) CMCall(idb->testqry, Destroy);

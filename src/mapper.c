@@ -20,24 +20,6 @@ CMUTIL_LogDefine("cmdbm.mapper")
 CMDBM_STATIC const char *CMDBM_MapperGetId(
         CMUTIL_XmlNode *node, CMBool slient);
 
-CMDBM_STATIC CMUTIL_XmlNode *CMDBM_MapperXmlCreateText(
-        const char *a, size_t len)
-{
-    const char *p = a;
-    while (len > 0 && strchr(CMDBM_SPACES, *p)) {
-        p++; len--;
-    }
-
-    if (len > 0) {
-        if (strchr(CMDBM_SPACES, *a) && a < p) {
-            p--; len++;
-        }
-        return CMUTIL_XmlNodeCreateWithLen(CMXmlNodeText, p, len);
-    } else {
-        return CMUTIL_XmlNodeCreateWithLen(CMXmlNodeText, " ", 1);
-    }
-}
-
 CMDBM_STATIC void CMDBM_CompItemDestroy(CMDBM_CompItem* item)
 {
     if (item) {
@@ -67,9 +49,10 @@ CMDBM_STATIC const char* CMDBM_MapperNextToken(
             *prev = inp;
 
         // remove preceeding spaces
-        while (strchr(CMDBM_SPACES, *inp)) inp++;
+        // (strchr(s, '\0') returns non-NULL, so check *inp first)
+        while (*inp && strchr(CMDBM_SPACES, *inp)) inp++;
 
-        if (strchr("'\"", *inp)) {
+        if (*inp && strchr("'\"", *inp)) {
             delim = *inp;
             *isconst = CMTrue;
             inp++;
@@ -120,7 +103,7 @@ CMDBM_STATIC CMBool CMDBM_MapperNumEquals(const char* a, const char* b)
     double bf = strtod(b, NULL);
     // compare with 7 significant digits after floating point.
     // drop remaining digits for comparison.
-    return fabs(af - bf) < 1e7 ? CMTrue:CMFalse;
+    return fabs(af - bf) < 1e-7 ? CMTrue:CMFalse;
 }
 
 CMDBM_STATIC CMBool CMDBM_MapperEqual(const char* a, const char* b)
@@ -175,15 +158,19 @@ CMDBM_STATIC CMBool CMDBM_MapperNotEqual(const char *a, const char *b)
 
 CMDBM_STATIC CMBool CMDBM_MapperGreaterThan(const char* a, const char* b)
 {
-    double af = strtod(a, NULL);
-    double bf = strtod(b, NULL);
+    double af, bf;
+    if (a == NULL || b == NULL) return CMFalse;
+    af = strtod(a, NULL);
+    bf = strtod(b, NULL);
     return af > bf? CMTrue:CMFalse;
 }
 
 CMDBM_STATIC CMBool CMDBM_MapperLessThan(const char* a, const char* b)
 {
-    double af = strtod(a, NULL);
-    double bf = strtod(b, NULL);
+    double af, bf;
+    if (a == NULL || b == NULL) return CMFalse;
+    af = strtod(a, NULL);
+    bf = strtod(b, NULL);
     return af < bf? CMTrue:CMFalse;
 }
 
@@ -466,6 +453,11 @@ CMDBM_STATIC CMBool CMDBM_MapperItemIf(
         const char *p = test? CMCall(test, GetCString):NULL;
         CMUTIL_List *data = (CMUTIL_List*)CMCall(node, GetUserData);
 
+        if (p == NULL) {
+            MapperError(node, "'if'/'when' tag must have test attribute.");
+            return CMFalse;
+        }
+
         if (data == NULL) {
             data = CMUTIL_ListCreateEx((void(*)(void*))CMDBM_CompItemDestroy);
             CMCall(node, SetUserData, data, CMDBM_CompListDestroyer);
@@ -658,7 +650,16 @@ CMDBM_STATIC CMBool CMDBM_MapperRebuildText(
 
         s += 2;
         r = strchr(s, '}');
-        strncat(buf, s, (uint64_t)(r - s));
+        if (r == NULL) {
+            MapperError(node, "unmatched parameter expression "
+                              "(missing '}') in query text.");
+            return CMFalse;
+        }
+        if ((size_t)(r - s) >= sizeof(buf)) {
+            MapperError(node, "parameter expression too long.");
+            return CMFalse;
+        }
+        strncat(buf, s, (size_t)(r - s));
         if (ntype == CMDBM_NTSqlBind) {
             // check out parameter
             uint32_t i;
@@ -691,10 +692,10 @@ CMDBM_STATIC CMBool CMDBM_MapperRebuildText(
         CMCall(node, AddChild, child);
         r++;
 
-        if (ntype == CMDBM_NTSqlBind)
-            p = strstr(r, "#{");
-        else
-            q = strstr(r, "${");
+        // re-search both markers: the other one may now point
+        // before current position (stale pointer).
+        p = strstr(r, "#{");
+        q = strstr(r, "${");
     }
 
     p = CMCall(node, GetName);

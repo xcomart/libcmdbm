@@ -11,7 +11,12 @@
                 "${workspaceRoot}/src",
                 "${workspaceRoot}"
             ],
-            "defines": ["CMDBM_MYSQL","CMDBM_ORACLE","CMDBM_ODBC","CMDBM_PGSQL"],
+            "defines": [
+                "CMDBM_MYSQL",
+                "CMDBM_ORACLE",
+                "CMDBM_ODBC",
+                "CMDBM_PGSQL"
+            ],
             "intelliSenseMode": "clang-x64",
             "browse": {
                 "path": [
@@ -49,7 +54,12 @@
                 "${workspaceRoot}/src",
                 "${workspaceRoot}"
             ],
-            "defines": ["CMDBM_MYSQL","CMDBM_ORACLE","CMDBM_ODBC","CMDBM_PGSQL"],
+            "defines": [
+                "CMDBM_MYSQL",
+                "CMDBM_ORACLE",
+                "CMDBM_ODBC",
+                "CMDBM_PGSQL"
+            ],
             "intelliSenseMode": "clang-x64",
             "browse": {
                 "path": [
@@ -94,8 +104,11 @@
                 ],
                 "limitSymbolsToIncludedHeaders": true,
                 "databaseFilename": ""
-            }
+            },
+            "compilerPath": "/usr/bin/clang-17",
+            "cStandard": "c17",
+            "cppStandard": "c++17"
         }
     ],
-    "version": 3
+    "version": 4
 }
