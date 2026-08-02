@@ -115,7 +115,7 @@ CMDBM_STATIC void *CMDBM_Oracle_Initialize(const char *dbcs, const char *prcs)
             res->convmtx = CMUTIL_MutexCreate();
         }
     }
-    return env;
+    return res;
 }
 
 CMDBM_STATIC void CMDBM_Oracle_CleanUp(void *initres)
@@ -168,11 +168,11 @@ CMDBM_STATIC void *CMDBM_Oracle_OpenConnection(
 {
     CMBool succ = CMFalse;
     CMUTIL_JsonValue *user =
-            (CMUTIL_JsonValue*)CMCall(params, GetString, "user");
+            (CMUTIL_JsonValue*)CMCall(params, Get, "user");
     CMUTIL_JsonValue *pass =
-            (CMUTIL_JsonValue*)CMCall(params, GetString, "password");
+            (CMUTIL_JsonValue*)CMCall(params, Get, "password");
     CMUTIL_JsonValue *tns  =
-            (CMUTIL_JsonValue*)CMCall(params, GetString, "tnsname");
+            (CMUTIL_JsonValue*)CMCall(params, Get, "tnsname");
     CMDBM_OracleSession *res = CMAlloc(sizeof(CMDBM_OracleSession));
     CMDBM_OracleCtx *ctx = (CMDBM_OracleCtx*)initres;
     const char *suser, *spass, *stns;
@@ -189,6 +189,7 @@ CMDBM_STATIC void *CMDBM_Oracle_OpenConnection(
     memset(res, 0x0, sizeof(CMDBM_OracleSession));
     res->envhp = ctx->envhp;
     res->ctx = ctx;
+    res->autocommit = CMTrue;
     if (OCIHandleAlloc(res->envhp, (void**)&(res->errhp),
                        OCI_HTYPE_ERROR, 0, NULL) != OCI_SUCCESS) {
         CMLogError("OCI error context allocation failed.");
@@ -293,7 +294,7 @@ CMDBM_STATIC CMBool CMDBM_Oracle_BindLong(
     CMCall(bufarr, Add, val, NULL);
     if (out) {
         CMDBM_OracleColumn *item = CMAlloc(sizeof(CMDBM_OracleColumn));
-        memset(item, 0x0, sizeof(sizeof(CMDBM_OracleColumn)));
+        memset(item, 0x0, sizeof(CMDBM_OracleColumn));
         item->typecd = CMJsonValueLong;
         item->index = pos;
         item->buffer = val;
@@ -411,13 +412,18 @@ CMDBM_STATIC CMBool CMDBM_Oracle_BindNull(
         uint32_t pos, CMUTIL_Array *bufarr, CMUTIL_Json *out,
         CMUTIL_Array *outarr)
 {
-    sb4 status, ind = -1;
+    sb4 status;
+    // indicator must survive until OCIStmtExecute: allocate on
+    // heap and let bufarr own it instead of using stack storage.
+    int *ind = CMAlloc(sizeof(int));
+    *ind = -1;
+    CMCall(bufarr, Add, ind, NULL);
     CMDBM_OracleCheck(conn, status, ENDPOINT, OCIBindByPos,
                       stmt, bind, conn->errhp, pos+1, NULL, 0,
-                      SQLT_STR, &ind,0,0,0,0,OCI_DEFAULT);
+                      SQLT_STR, ind,0,0,0,0,OCI_DEFAULT);
     return CMTrue;
 ENDPOINT:
-    CMUTIL_UNUSED(jval, bufarr, out, outarr);
+    CMUTIL_UNUSED(jval, out, outarr);
     return CMFalse;
 }
 
@@ -548,8 +554,20 @@ CMDBM_STATIC OCIStmt *CMDBM_Oracle_ExecuteBase(
     }
 
     // execute statement
-    CMDBM_OracleCheck(conn, status, FAILEDPOINT, OCIStmtExecute,
-                      conn->svchp, stmt, conn->errhp, 1, 0,0,0, OCI_DEFAULT);
+    {
+        ub2 stmttype = 0;
+        ub4 iters;
+        ub4 mode;
+        CMDBM_OracleCheck(conn, status, FAILEDPOINT, OCIAttrGet,
+                          stmt, OCI_HTYPE_STMT, &stmttype, 0,
+                          OCI_ATTR_STMT_TYPE, conn->errhp);
+        // SELECT must be executed with iters=0
+        // (defines are set after this call in SelectBase).
+        iters = (stmttype == OCI_STMT_SELECT)? 0:1;
+        mode = conn->autocommit? OCI_COMMIT_ON_SUCCESS:OCI_DEFAULT;
+        CMDBM_OracleCheck(conn, status, FAILEDPOINT, OCIStmtExecute,
+                          conn->svchp, stmt, conn->errhp, iters, 0,0,0, mode);
+    }
 
     // retreive out variables
     {
@@ -561,7 +579,11 @@ CMDBM_STATIC OCIStmt *CMDBM_Oracle_ExecuteBase(
             uint32_t idx = (uint32_t)atoi(cidx);
             CMDBM_OracleColumn *col =
                     (CMDBM_OracleColumn*)CMCall(outarr, GetAt, idx);
-            CMDBM_Oracle_SetOutValue(col, jval);
+            if (col)
+                CMDBM_Oracle_SetOutValue(col, jval);
+            else
+                CMLogError("out parameter index(%u) is "
+                           "out of bind range.", idx);
         }
     }
 
@@ -661,6 +683,8 @@ CMDBM_STATIC CMUTIL_JsonObject *CMDBM_Oracle_FetchRow(
     uint32_t i;
     sb4 status;
     CMUTIL_JsonObject *res = NULL;
+    if (stmt == NULL)
+        return NULL;
     CMDBM_OracleCheck(conn, status, FAILEDPOINT, OCIStmtFetch,
                       stmt, conn->errhp, 1, OCI_FETCH_NEXT, OCI_DEFAULT);
     if (status != OCI_NO_DATA && status != OCI_NEED_DATA) {
@@ -817,6 +841,7 @@ CMDBM_STATIC CMUTIL_JsonObject *CMDBM_Oracle_CursorNextRow(void *cursor)
                 CMDBM_Oracle_FetchRow(csr->conn, csr->stmt, csr->outcols);
         if (res == NULL)
             csr->isend = CMTrue;
+        return res;
     }
     return NULL;
 }

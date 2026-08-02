@@ -117,8 +117,10 @@ CMDBM_STATIC void CMDBM_ODBC_CloseConnection(
 {
     CMDBM_ODBCSession *sess = (CMDBM_ODBCSession*)connection;
     if (sess) {
-        if (sess->conn)
+        if (sess->conn) {
+            SQLDisconnect(sess->conn);
             SQLFreeHandle(SQL_HANDLE_DBC, sess->conn);
+        }
         CMLogTrace("ODBC connection closed.");
         CMFree(sess);
     }
@@ -256,7 +258,7 @@ CMDBM_STATIC CMBool CMDBM_ODBC_BindLong(
     SQLLEN vlen = sizeof(int64_t);
     CMDBM_ODBC_BindField *bfield =
             CMDBM_ODBC_BindFieldCreate(CMJsonValueLong);
-    SQLSMALLINT inout = out? SQL_PARAM_INPUT:SQL_PARAM_OUTPUT;
+    SQLSMALLINT inout = out? SQL_PARAM_INPUT_OUTPUT:SQL_PARAM_INPUT;
     bfield->longVal = CMCall(jval, GetLong);
     TRYODBC(stmt, SQL_HANDLE_STMT, SQLBindParameter(
                 stmt, (SQLUSMALLINT)(index+1), inout, SQL_C_SBIGINT,
@@ -276,7 +278,7 @@ CMDBM_STATIC CMBool CMDBM_ODBC_BindDouble(
     SQLLEN vlen = sizeof(double);
     CMDBM_ODBC_BindField *bfield =
             CMDBM_ODBC_BindFieldCreate(CMJsonValueDouble);
-    SQLSMALLINT inout = out? SQL_PARAM_INPUT:SQL_PARAM_OUTPUT;
+    SQLSMALLINT inout = out? SQL_PARAM_INPUT_OUTPUT:SQL_PARAM_INPUT;
     bfield->doubleVal = CMCall(jval, GetDouble);
     TRYODBC(stmt, SQL_HANDLE_STMT, SQLBindParameter(
                 stmt, (SQLUSMALLINT)(index+1), inout, SQL_C_DOUBLE,
@@ -297,7 +299,7 @@ CMDBM_STATIC CMBool CMDBM_ODBC_BindString(
     SQLLEN osize = (SQLLEN)CMCall(str, GetSize);
     CMDBM_ODBC_BindField *bfield =
             CMDBM_ODBC_BindFieldCreate(CMJsonValueString);
-    SQLSMALLINT inout = out? SQL_PARAM_INPUT:SQL_PARAM_OUTPUT;
+    SQLSMALLINT inout = out? SQL_PARAM_INPUT_OUTPUT:SQL_PARAM_INPUT;
     if (out && osize < 4096)
         osize = 4096;
     bfield->strVal = CMAlloc((uint64_t)osize+1);
@@ -321,7 +323,7 @@ CMDBM_STATIC CMBool CMDBM_ODBC_BindBoolean(
     SQLLEN vlen = sizeof(short);
     CMDBM_ODBC_BindField *bfield =
             CMDBM_ODBC_BindFieldCreate(CMJsonValueBoolean);
-    SQLSMALLINT inout = out? SQL_PARAM_INPUT:SQL_PARAM_OUTPUT;
+    SQLSMALLINT inout = out? SQL_PARAM_INPUT_OUTPUT:SQL_PARAM_INPUT;
     bfield->boolVal = CMCall(jval, GetBoolean);
     TRYODBC(stmt, SQL_HANDLE_STMT, SQLBindParameter(
                 stmt, (SQLUSMALLINT)(index+1), inout, SQL_C_SSHORT,
@@ -419,7 +421,7 @@ CMDBM_STATIC void CMDBM_ODBC_SetOutValue(
         CMDBM_ODBC_BindField *bfield, CMUTIL_JsonValue *jval)
 {
 
-    if (bfield->outLen == 0) {
+    if (bfield->outLen == 0 || bfield->outLen == SQL_NULL_DATA) {
         CMCall(jval, SetNull);
     } else {
         g_cmdbm_odbc_bindoutprocs[bfield->jtype](bfield, jval);
@@ -459,7 +461,10 @@ CMDBM_STATIC SQLHSTMT CMDBM_ODBC_ExecuteBase(
             CMJsonValueType jtype = CMCall(jval, GetValueType);
             CMUTIL_Json *out = CMCall(outs, Get, ibuf);
             // type of json value
-            g_cmdbm_odbc_bindprocs[jtype](stmt, jval, array, out, i);
+            if (!g_cmdbm_odbc_bindprocs[jtype](stmt, jval, array, out, i)) {
+                CMLogError("parameter binding failed at index %u.", i);
+                goto FAILED;
+            }
         } else {
             CMLogError("binding variable is not value type JSON.");
             goto FAILED;
@@ -478,7 +483,11 @@ CMDBM_STATIC SQLHSTMT CMDBM_ODBC_ExecuteBase(
             CMDBM_ODBC_BindField *bfield = NULL;
             uint32_t idx = strtol(cidx, NULL, 10);
             bfield = (CMDBM_ODBC_BindField*)CMCall(array, GetAt, idx);
-            CMDBM_ODBC_SetOutValue(bfield, jval);
+            if (bfield)
+                CMDBM_ODBC_SetOutValue(bfield, jval);
+            else
+                CMLogError("out parameter index(%u) is "
+                           "out of bind range.", idx);
         }
         CMCall(keys, Destroy);
     }
@@ -527,8 +536,10 @@ CMDBM_STATIC void CMDBM_ODBC_ResultAssignString(
             CMCall(row, PutNull, finfo->name);
             break;
         }
-        bytes = (size > 1024) || (size == SQL_NO_TOTAL) ?
-                          1024 : size;
+        // SQLGetData null-terminates: a full buffer holds
+        // sizeof(buf)-1 characters plus the terminator.
+        bytes = (size >= (SQLLEN)sizeof(buf)) || (size == SQL_NO_TOTAL) ?
+                          (SQLLEN)sizeof(buf)-1 : size;
         CMCall(strbuf, AddNString, (char*)buf, (uint64_t)bytes);
     }
 FAILED:
@@ -618,14 +629,14 @@ CMDBM_STATIC SQLHSTMT CMDBM_ODBC_SelectBase(
                 col->jtype = CMJsonValueLong;
                 col->fassign = CMDBM_ODBC_ResultAssignLong;
                 TRYODBC(stmt, SQL_HANDLE_STMT, SQLBindCol(
-                            stmt, (SQLUSMALLINT)i+1, SQL_C_LONG,
+                            stmt, (SQLUSMALLINT)i+1, SQL_C_SBIGINT,
                             &col->longVal, sizeof(int64_t), &col->outLen));
                 break;
             case SQL_BIT:
                 col->jtype = CMJsonValueBoolean;
                 col->fassign = CMDBM_ODBC_ResultAssignBoolean;
                 TRYODBC(stmt, SQL_HANDLE_STMT, SQLBindCol(
-                            stmt, (SQLUSMALLINT)i+1, SQL_C_LONG,
+                            stmt, (SQLUSMALLINT)i+1, SQL_C_SSHORT,
                             &col->boolVal, sizeof(short), &col->outLen));
                 break;
             case SQL_CHAR:
@@ -685,7 +696,12 @@ CMDBM_STATIC CMUTIL_JsonObject *CMDBM_ODBC_GetRow(
     CMBool succ = CMFalse;
 
     if (stmt) {
-        TRYODBC(stmt, SQL_HANDLE_STMT, SQLFetch(stmt));
+        SQLRETURN fr = SQLFetch(stmt);
+        if (fr == SQL_NO_DATA) {
+            CMLogError("query did not return any row.");
+            goto FAILED;
+        }
+        TRYODBC(stmt, SQL_HANDLE_STMT, fr);
         res = CMUTIL_JsonObjectCreate();
         CMUTIL_ODBC_RowSetFields(fields, stmt, res);
     } else {
@@ -743,7 +759,8 @@ CMDBM_STATIC CMUTIL_JsonArray *CMDBM_ODBC_GetList(
     if (stmt) {
         int rcnt = 0;
         SQLRETURN sr = SQL_SUCCESS;
-        while ((sr = SQLFetch(stmt)) == SQL_SUCCESS) {
+        while ((sr = SQLFetch(stmt)) == SQL_SUCCESS ||
+               sr == SQL_SUCCESS_WITH_INFO) {
             CMUTIL_JsonObject *obj = CMUTIL_JsonObjectCreate();
             CMUTIL_ODBC_RowSetFields(fields, stmt,  obj);
             CMCall(res, Add, (CMUTIL_Json*)obj);
@@ -822,7 +839,6 @@ CMDBM_STATIC void CMDBM_ODBC_CloseCursor(void *cursor)
 {
     CMDBM_ODBC_Cursor *csr = (CMDBM_ODBC_Cursor*)cursor;
     if (csr) {
-        if (csr->fields) CMCall(csr->fields, Destroy);
         if (csr->stmt)
             SQLFreeHandle(SQL_HANDLE_STMT, csr->stmt);
         if (csr->fields)
@@ -836,7 +852,10 @@ CMDBM_STATIC CMUTIL_JsonObject *CMDBM_ODBC_CursorNextRow(void *cursor)
     CMDBM_ODBC_Cursor *csr = (CMDBM_ODBC_Cursor*)cursor;
     if (csr) {
         CMUTIL_JsonObject *res = NULL;
-        TRYODBC(csr->stmt, SQL_HANDLE_STMT, SQLFetch(csr->stmt));
+        SQLRETURN fr = SQLFetch(csr->stmt);
+        if (fr == SQL_NO_DATA)
+            return NULL;
+        TRYODBC(csr->stmt, SQL_HANDLE_STMT, fr);
         res = CMUTIL_JsonObjectCreate();
         CMUTIL_ODBC_RowSetFields(csr->fields, csr->stmt, res);
         return res;

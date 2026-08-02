@@ -95,6 +95,15 @@ CMDBM_STATIC CMDBM_Connection *CMDBM_SessionGetConnection(
     return conn;
 }
 
+// bind/out values are references owned by the caller's params object:
+// they must be detached before their container is destroyed.
+CMDBM_STATIC void CMDBM_SessionClearBinds(CMUTIL_JsonArray *binds)
+{
+    size_t size;
+    while ((size = CMCall(binds, GetSize)) > 0)
+        CMCall(binds, Remove, (uint32_t)(size-1));
+}
+
 CMDBM_STATIC CMUTIL_String *CMDBM_SessionGetQuery(
         CMDBM_Session *sess, const char *dbid, const char *sqlid,
         CMUTIL_JsonObject *params, CMUTIL_JsonArray **binds,
@@ -105,11 +114,15 @@ CMDBM_STATIC CMUTIL_String *CMDBM_SessionGetQuery(
     CMDBM_Connection *conn = NULL;
     CMUTIL_String *query = NULL;
     CMUTIL_XmlNode *xqry = NULL;
-    CMBool succ = CMFalse;
+    CMBool succ = CMFalse, locked = CMFalse;
     if (!db) {
         CMLogErrorS("unknown datasource id: %s.", dbid);
         goto ENDPOINT;
     }
+    // lock must be held before touching query items, otherwise the
+    // mapper reloader can destroy the node while it is in use.
+    CMCall(db, LockQueryItem);
+    locked = CMTrue;
     xqry = CMCall(db, GetQuery, sqlid);
     if (!xqry) {
         CMLogErrorS("unknown query id '%s' in datasource %s.", sqlid, dbid);
@@ -124,17 +137,19 @@ CMDBM_STATIC CMUTIL_String *CMDBM_SessionGetQuery(
     conn = CMDBM_SessionGetConnection(isess, dbid);
     if (!conn) goto ENDPOINT;
 
-    CMCall(db, LockQueryItem);
     succ = CMDBM_BuildNode(sess, conn, xqry, params, *binds, *after,
                            query, *outs, *rembuf);
 ENDPOINT:
     if (!succ) {
-        if (db)
+        if (locked)
             CMCall(db, UnlockQueryItem);
         if (*outs) CMUTIL_JsonDestroy(*outs);
         if (*after) CMCall(*after, Destroy);
         if (*rembuf) CMCall(*rembuf, Destroy);
-        if (*binds) CMUTIL_JsonDestroy(*binds);
+        if (*binds) {
+            CMDBM_SessionClearBinds(*binds);
+            CMUTIL_JsonDestroy(*binds);
+        }
         if (query) CMCall(query, Destroy);
         *outs = NULL;
         *after = NULL;
@@ -142,7 +157,8 @@ ENDPOINT:
         *binds = NULL;
         query = NULL;
     }
-    CMLogDebug("%s.%s - %s", dbid, sqlid, CMCall(query, GetCString));
+    if (query)
+        CMLogDebug("%s.%s - %s", dbid, sqlid, CMCall(query, GetCString));
     return query;
 }
 
@@ -164,6 +180,7 @@ CMDBM_STATIC CMBool CMDBM_SessionExecAfters(
                     (CMUTIL_XmlNode*)CMCall(after, GetFront);
             res = CMDBM_BuildNode(sess, conn, qry, params, binds, after,
                                   dummy, NULL, rembuf);
+            CMDBM_SessionClearBinds(binds);
             CMUTIL_JsonDestroy(binds);
         }
     } else {
@@ -190,7 +207,10 @@ CMDBM_STATIC void CMDBM_SessionCleanUp(
         CMCall(keyset, Destroy);
         CMUTIL_JsonDestroy(outs);
     }
-    if (binds) CMUTIL_JsonDestroy(binds);
+    if (binds) {
+        CMDBM_SessionClearBinds(binds);
+        CMUTIL_JsonDestroy(binds);
+    }
     if (after) CMCall(after, Destroy);
     if (rembuf) CMCall(rembuf, Destroy);
     if (query) CMCall(query, Destroy);
@@ -320,6 +340,7 @@ CMDBM_STATIC CMBool CMDBM_SessionForEachRow(
                 }
                 res = CMTrue;
             }
+            CMCall(csr, Close);
         } else {
             CMLogErrorS("%s.%s query execution failed. -> %s",
                         dbid, sqlid, CMCall(query, GetCString));

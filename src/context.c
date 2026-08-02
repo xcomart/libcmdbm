@@ -130,7 +130,10 @@ CMDBM_STATIC CMBool CMDBM_ContextParseMappers(
         CMUTIL_JsonObject *mcfg =
                 (CMUTIL_JsonObject*)CMCall(mappers, Get, i);
         const char *stype = CMCall(mcfg, GetCString, "type");
-        if (strcasecmp(stype, "mapperSet") == 0) {
+        if (stype == NULL) {
+            CMLogErrorS("mapper configuration has no 'type' attribute.");
+            res = CMFalse;
+        } else if (strcasecmp(stype, "mapperSet") == 0) {
             // add mapper set
             const char *bpath = CMCall(mcfg, GetCString, "basepath");
             const char *fpattern = CMCall(mcfg, GetCString, "filepattern");
@@ -157,10 +160,10 @@ CMDBM_STATIC CMBool CMDBM_ContextParseDatabase(
     CMDBM_Context_Internal *ictx = (CMDBM_Context_Internal*)context;
     CMUTIL_JsonObject *pcfg =
             (CMUTIL_JsonObject*)CMCall(dcfg, Get, "pool");
-    CMUTIL_JsonValue *pref =
-            (CMUTIL_JsonValue*)CMCall(pcfg, Get, "confref");
-    CMUTIL_JsonValue *testsql =
-            (CMUTIL_JsonValue*)CMCall(pcfg, Get, "testsql");
+    CMUTIL_JsonValue *pref = pcfg?
+            (CMUTIL_JsonValue*)CMCall(pcfg, Get, "confref"):NULL;
+    CMUTIL_JsonValue *testsql = pcfg?
+            (CMUTIL_JsonValue*)CMCall(pcfg, Get, "testsql"):NULL;
     CMUTIL_JsonValue *id =
             (CMUTIL_JsonValue*)CMCall(dcfg, Get, "id");
     CMUTIL_JsonValue *charset =
@@ -173,7 +176,8 @@ CMDBM_STATIC CMBool CMDBM_ContextParseDatabase(
     uint32_t i;
 
     if (id == NULL) {
-        CMLogErrorS("There is no 'id' attribute in '%s' type datasource.");
+        CMLogErrorS("There is no 'id' attribute in '%s' type datasource.",
+                    sdbtype);
         goto ENDPOINT;
     }
     sid = CMCall(id, GetCString);
@@ -189,6 +193,10 @@ CMDBM_STATIC CMBool CMDBM_ContextParseDatabase(
         const char *refkey = CMCall(pref, GetCString);
         CMDBM_PoolConfig *ref = (CMDBM_PoolConfig*)CMCall(
                     ictx->poolconfs, Get, refkey);
+        if (ref == NULL) {
+            CMLogErrorS("pool config reference '%s' not found.", refkey);
+            goto ENDPOINT;
+        }
         memcpy(pconf, ref, sizeof(CMDBM_PoolConfig));
         if (testsql)
             pconf->testsql = CMStrdup(CMCall(testsql, GetCString));
@@ -205,14 +213,16 @@ CMDBM_STATIC CMBool CMDBM_ContextParseDatabase(
             pconf->testsql = CMStrdup("select 1");
     }
 
-    if (CMCall(pcfg, Get, "initcount"))
-        pconf->initcnt = (uint32_t)CMCall(pcfg, GetLong, "initcount");
+    if (pcfg) {
+        if (CMCall(pcfg, Get, "initcount"))
+            pconf->initcnt = (uint32_t)CMCall(pcfg, GetLong, "initcount");
 
-    if (CMCall(pcfg, Get, "maxcount"))
-        pconf->maxcnt = (uint32_t)CMCall(pcfg, GetLong, "maxcount");
+        if (CMCall(pcfg, Get, "maxcount"))
+            pconf->maxcnt = (uint32_t)CMCall(pcfg, GetLong, "maxcount");
 
-    if (CMCall(pcfg, Get, "pinginterval"))
-        pconf->pingterm =(uint32_t)CMCall(pcfg, GetLong, "pinginterval");
+        if (CMCall(pcfg, Get, "pinginterval"))
+            pconf->pingterm =(uint32_t)CMCall(pcfg, GetLong, "pinginterval");
+    }
 
     if (CMCall(dcfg, Get, "params")) {
         CMUTIL_Json *json = CMCall(dcfg, Get, "params");
@@ -346,6 +356,8 @@ CMDBM_STATIC CMBool CMDBM_ContextParseConfig(
             CMLogError("database configuration parse failed.");
             goto ENDPOINT;
         }
+        CMCall(ltype, Destroy);
+        ltype = NULL;
     }
 
     // TODO: load logging config
@@ -434,8 +446,11 @@ CMDBM_STATIC void CMDBM_ContextDestroy(CMDBM_Context *ctx)
 {
     CMDBM_Context_Internal *ictx = (CMDBM_Context_Internal*)ctx;
     if (ictx) {
-        if (ictx->istimerinternal) CMCall(ictx->timer, Destroy);
+        // databases must be destroyed before the timer:
+        // each database cancels its reloader task on destroy,
+        // which must not outlive the timer that owns the tasks.
         if (ictx->databases) CMCall(ictx->databases, Destroy);
+        if (ictx->istimerinternal) CMCall(ictx->timer, Destroy);
         if (ictx->poolconfs) CMCall(ictx->poolconfs, Destroy);
         if (ictx->libctx) CMCall(ictx->libctx, Destroy);
         if (ictx->progcs) CMFree(ictx->progcs);
