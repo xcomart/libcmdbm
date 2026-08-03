@@ -92,10 +92,17 @@ CMDBM_STATIC CMBool CMDBM_ContextParsePoolConfig(
                     (uint32_t)CMCall(pcfg, GetLong, "pinginterval");
         else
             poolconf->pingterm = 30;
-        if (testsql)
-            poolconf->testsql = CMStrdup(CMCall(testsql, GetCString));
+        if (CMCall(pcfg, Get, "pingtest"))
+            poolconf->pingtest = CMCall(pcfg, GetBoolean, "pingtest");
         else
-            poolconf->testsql = CMStrdup("select 1");
+            poolconf->pingtest = CMTrue;
+        if (CMCall(pcfg, Get, "testonborrow"))
+            poolconf->testonborrow = CMCall(pcfg, GetBoolean, "testonborrow");
+        else
+            poolconf->testonborrow = CMTrue;
+        // no test statement here means the one of the DBMS module.
+        poolconf->testsql = testsql?
+                    CMStrdup(CMCall(testsql, GetCString)):NULL;
 
         CMCall(ictx->poolconfs, Put, sid, poolconf, NULL);
         res = CMTrue;
@@ -195,20 +202,23 @@ CMDBM_STATIC CMBool CMDBM_ContextParseDatabase(
             CMLogErrorS("pool config reference '%s' not found.", refkey);
             goto ENDPOINT;
         }
+        // the referenced configuration owns its own test statement, this
+        // one needs a copy of whichever it ends up with.
         memcpy(pconf, ref, sizeof(CMDBM_PoolConfig));
         if (testsql)
             pconf->testsql = CMStrdup(CMCall(testsql, GetCString));
-        else
+        else if (pconf->testsql)
             pconf->testsql = CMStrdup(pconf->testsql);
     } else {
         memset(pconf, 0x0, sizeof(CMDBM_PoolConfig));
         pconf->initcnt = 5;
         pconf->maxcnt = 20;
         pconf->pingterm = 30;
-        if (testsql)
-            pconf->testsql = CMStrdup(CMCall(testsql, GetCString));
-        else
-            pconf->testsql = CMStrdup("select 1");
+        pconf->pingtest = CMTrue;
+        pconf->testonborrow = CMTrue;
+        // no test statement here means the one of the DBMS module.
+        pconf->testsql = testsql?
+                    CMStrdup(CMCall(testsql, GetCString)):NULL;
     }
 
     if (pcfg) {
@@ -220,6 +230,12 @@ CMDBM_STATIC CMBool CMDBM_ContextParseDatabase(
 
         if (CMCall(pcfg, Get, "pinginterval"))
             pconf->pingterm =(uint32_t)CMCall(pcfg, GetLong, "pinginterval");
+
+        if (CMCall(pcfg, Get, "pingtest"))
+            pconf->pingtest = CMCall(pcfg, GetBoolean, "pingtest");
+
+        if (CMCall(pcfg, Get, "testonborrow"))
+            pconf->testonborrow = CMCall(pcfg, GetBoolean, "testonborrow");
     }
 
     if (CMCall(dcfg, Get, "params")) {

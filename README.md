@@ -8,6 +8,11 @@ A MyBatis-like database mapping library for C.
 [![Language: C99](https://img.shields.io/badge/language-C99-blue.svg)](#4-building)
 [![Databases](https://img.shields.io/badge/databases-MariaDB%20%7C%20MySQL%20%7C%20PostgreSQL%20%7C%20SQLite%20%7C%20Oracle%20%7C%20ODBC-blue.svg)](#63-connection-parameters-per-module)
 [![Platforms](https://img.shields.io/badge/platforms-Linux%20%7C%20macOS-lightgrey.svg)](#4-building)
+[![API reference](https://img.shields.io/badge/docs-API%20reference-brightgreen.svg)](https://xcomart.github.io/libcmdbm/api/)
+
+📖 **[API reference](https://xcomart.github.io/libcmdbm/api/)** — every type and
+method of `libcmdbm.h`, grouped by subject. This page is the guided tour; that
+one is the lookup.
 
 * [1. About](#1-about)
 * [2. Features](#2-features)
@@ -303,12 +308,12 @@ and populated programmatically:
 
 ```c
 CMDBM_PoolConfig pool = {
-    30,         /* pingterm     - ping interval, seconds */
+    30,         /* pingterm     - idle test every 30s    */
     CMTrue,     /* pingtest                              */
     CMTrue,     /* testonborrow                          */
     2,          /* initcnt                               */
     10,         /* maxcnt                                */
-    "select 1"  /* testsql                               */
+    NULL        /* testsql      - NULL: the module's own */
 };
 CMUTIL_JsonObject *cparm = CMUTIL_JsonObjectCreate();
 CMDBM_Database *db;
@@ -382,10 +387,21 @@ parameters.
 | `confRef` | — | id of an entry in `poolConfigurations` to inherit from |
 | `initCount` | 5 | connections opened at start-up |
 | `maxCount` | 20 (100 in the sample preset) | hard limit of pooled connections |
-| `pingInterval` | 30 | seconds between idle-connection ping tests |
-| `testSql` | `select 1` | query used for the ping/borrow test |
+| `pingInterval` | 30 | seconds between two rounds of the idle-connection test |
+| `pingTest` | `true` | whether idle connections are tested at all |
+| `testOnBorrow` | `true` | whether a connection is tested when a session takes it |
+| `testSql` | the statement of the module | query used for those tests |
 
 A checkout waits at most 5 seconds for a free connection before failing.
+
+A connection which fails its test is closed and replaced, which is what keeps
+a pool usable across a database restart. `testOnBorrow` is the safe setting —
+a session never gets a dead connection — at one round trip per checkout;
+turning it off and leaving `pingTest` on moves the cost to the background
+task. With both off, connections are handed out without ever being tested.
+
+Leaving `testSql` out is usually right: each module brings the statement its
+database needs, `select 1 from dual` on Oracle and `select 1` elsewhere.
 
 ### 6.5 Mapper entries
 
@@ -559,6 +575,12 @@ All types are declared in `src/libcmdbm.h`. Methods are invoked with libcmutils'
 `CMCall(obj, Method, args...)` macro, which expands to
 `obj->Method(obj, args...)`. Note that `CMCall` cannot be nested — assign
 intermediate results to local variables.
+
+The section below is the summary. The header carries a doc comment on every
+declaration, published as the
+**[API reference](https://xcomart.github.io/libcmdbm/api/)** — the same pages
+are built locally with `cmake --build build --target cmdbm_docs`, see
+[doc/README.md](doc/README.md).
 
 ### 8.1 Library lifecycle
 
@@ -791,6 +813,7 @@ src/            core: context, database, session, connection, mapper, sqlbuild
 modules/        DBMS modules: cmdbm_mysql.c, cmdbm_pgsql.c, cmdbm_sqlite.c,
                 cmdbm_oracle.c, cmdbm_odbc.c
 data/           sample configuration, sample sqlmap and DTDs
+doc/            doxygen configuration for the API reference
 test/           test suite, with a mock DBMS module and its mapper/config data
 libcmutils/     git submodule — base utility library (JSON, XML, pool, log, …)
 .github/        CI workflow building and testing on Linux and macOS

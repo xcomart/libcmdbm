@@ -1,0 +1,101 @@
+name: Docs
+
+# Publishes the GitHub Pages site: the README landing page at / and the
+# generated API reference at /api/. Nothing generated is committed - both
+# halves are built here on every push to the default branch.
+#
+# This requires the repository's Pages source to be "GitHub Actions"
+# (Settings -> Pages -> Build and deployment -> Source).
+
+on:
+  push:
+    branches: [ main, master ]
+    # A doc comment change lands in the header, so watch that too.
+    paths:
+      - 'src/libcmdbm.h'
+      - 'doc/**'
+      - 'README.md'
+      - '_config.yml'
+      - '.github/workflows/docs.yml'
+  # Build on pull requests as well - without deploying - so a site that no
+  # longer builds is caught before it reaches the default branch.
+  pull_request:
+    branches: [ main, master ]
+    paths:
+      - 'src/libcmdbm.h'
+      - 'doc/**'
+      - 'README.md'
+      - '_config.yml'
+      - '.github/workflows/docs.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# One deployment at a time, and never cancel one halfway - a cancelled
+# deploy leaves the site in whatever state it reached.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build the site
+    runs-on: ubuntu-latest
+    steps:
+    # the submodule is not needed: doxygen reads the public header only.
+    - uses: actions/checkout@v4
+
+    - name: Install doxygen
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y doxygen
+
+    # Runs first, because it creates _site from scratch.
+    - name: Build the landing page
+      uses: actions/jekyll-build-pages@v1
+      with:
+        source: ./
+        destination: ./_site
+
+    - name: Build the API reference
+      working-directory: doc
+      run: LIBCMDBM_VERSION=$(cat ../VERSION) doxygen Doxyfile
+
+    # The Doxyfile turns every documentation warning on and writes them
+    # here, so an empty log is the contract. Publishing a reference with
+    # known gaps in it defeats the point of the setting.
+    - name: Fail on documentation warnings
+      run: |
+        if [ -s doc/doxygen.log ]; then
+          echo "::error::doxygen reported documentation problems:"
+          cat doc/doxygen.log
+          exit 1
+        fi
+        echo "doxygen reported no documentation problems"
+
+    # jekyll-build-pages runs in a container as root, so _site comes back
+    # owned by root: take it over before writing into it or packing it.
+    - name: Place the reference under /api
+      run: |
+        sudo chown -R "$(id -u):$(id -g)" _site
+        mkdir -p _site/api
+        cp -r doc/html/. _site/api/
+
+    - uses: actions/upload-pages-artifact@v3
+      with:
+        path: ./_site
+
+  deploy:
+    name: Deploy to Pages
+    needs: build
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+    - id: deployment
+      uses: actions/deploy-pages@v4

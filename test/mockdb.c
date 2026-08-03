@@ -52,7 +52,8 @@ static char *MockBindString(
     return buffer;
 }
 
-static const char *MockTestQuery(void) { return "select 1"; }
+static const char *MockTestQuery(void) { return MOCKDB_TESTQUERY; }
+static const char *Mock2TestQuery(void) { return MOCKDB2_TESTQUERY; }
 
 static void *MockOpenConnection(void *initres, CMUTIL_JsonObject *params)
 {
@@ -106,8 +107,15 @@ static CMUTIL_JsonValue *MockGetOneValue(
         void *initres, void *connection, CMUTIL_String *query,
         CMUTIL_JsonArray *binds, CMUTIL_JsonObject *outs)
 {
+    MockDbStat *stat = (MockDbStat*)initres;
     CMUTIL_JsonValue *res = CMUTIL_JsonValueCreate();
-    CMUTIL_UNUSED(initres, connection, query, binds, outs);
+    const char *sql = CMCall(query, GetCString);
+    CMUTIL_UNUSED(connection, binds, outs);
+    /* the pool validates connections through this callback, so recording
+     * the statement is how a test sees which one it used - and how many
+     * times it was run. */
+    stat->onevalue++;
+    snprintf(stat->lastqry, sizeof(stat->lastqry), "%s", sql? sql:"");
     CMCall(res, SetLong, 1);
     return res;
 }
@@ -174,9 +182,9 @@ static CMUTIL_JsonObject *MockCursorNextRow(void *cursor)
     return MockRow(csr->current);
 }
 
-#define MOCKDB_INTERFACE(libinit, libclear, key, initialize)    \
+#define MOCKDB_INTERFACE(libinit, libclear, key, initialize, testqry)  \
     libinit, libclear, key, initialize, MockCleanUp,            \
-    MockBindString, MockTestQuery,                              \
+    MockBindString, testqry,                                    \
     MockOpenConnection, MockCloseConnection,                    \
     MockStartTransaction, MockEndTransaction,                   \
     MockCommitTransaction, MockRollbackTransaction,             \
@@ -184,10 +192,12 @@ static CMUTIL_JsonObject *MockCursorNextRow(void *cursor)
     MockOpenCursor, MockCloseCursor, MockCursorNextRow
 
 CMDBM_ModuleInterface g_mockdb_interface = {
-    MOCKDB_INTERFACE(MockLibInit, MockLibClear, MockKey, MockInitialize) };
+    MOCKDB_INTERFACE(MockLibInit, MockLibClear, MockKey, MockInitialize,
+                     MockTestQuery) };
 
 CMDBM_ModuleInterface g_mockdb2_interface = {
-    MOCKDB_INTERFACE(Mock2LibInit, Mock2LibClear, Mock2Key, Mock2Initialize) };
+    MOCKDB_INTERFACE(Mock2LibInit, Mock2LibClear, Mock2Key, Mock2Initialize,
+                     Mock2TestQuery) };
 
 void MockDbRegister(void)
 {

@@ -76,3 +76,7 @@ build
 
 .idea
 .vscode
+
+# Generated API reference (cmake --build build --target cmdbm_docs)
+doc/html/
+doc/doxygen.log

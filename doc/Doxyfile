@@ -1,0 +1,99 @@
+# Doxygen configuration for the libcmdbm API reference.
+#
+# Run it from this directory:
+#
+#     cd doc && doxygen
+#
+# or through the build:
+#
+#     cmake -S . -B build && cmake --build build --target docs
+#
+# Only the settings that matter are listed; everything else keeps its
+# default. See doc/README.md for what the output contains.
+
+#---------------------------------------------------------------------------
+# Project
+#---------------------------------------------------------------------------
+PROJECT_NAME           = libcmdbm
+PROJECT_BRIEF          = "MyBatis-like SQL mapping library for C99"
+# The build passes the contents of VERSION in through this variable; a bare
+# "doxygen" run simply leaves the version blank.
+PROJECT_NUMBER         = $(LIBCMDBM_VERSION)
+
+OUTPUT_DIRECTORY       =
+HTML_OUTPUT            = html
+GENERATE_LATEX         = NO
+GENERATE_HTML          = YES
+
+#---------------------------------------------------------------------------
+# Input
+#---------------------------------------------------------------------------
+# libcmdbm.h is the whole public API - the .c files, the DBMS modules and
+# the internal headers under src/ are implementation and are left out.
+INPUT                  = ../src/libcmdbm.h
+FILE_PATTERNS          = *.h
+RECURSIVE              = NO
+EXAMPLE_PATH           = ../test
+EXAMPLE_PATTERNS       = *.c
+EXAMPLE_RECURSIVE      = NO
+
+#---------------------------------------------------------------------------
+# What to extract
+#---------------------------------------------------------------------------
+# This is a C API: no classes, no namespaces, and "typedef struct X X;"
+# should read as X rather than as an anonymous struct.
+OPTIMIZE_OUTPUT_FOR_C  = YES
+TYPEDEF_HIDES_STRUCT   = YES
+
+# Undocumented entities are left out rather than listed empty, and the
+# warnings below say which they were - so the reference never silently
+# grows a blank page.
+EXTRACT_ALL            = NO
+EXTRACT_STATIC         = NO
+HIDE_UNDOC_MEMBERS     = YES
+HIDE_UNDOC_CLASSES     = YES
+
+# Declaration order carries meaning in this header: the methods of an object
+# sit in the order they are used in, and the constructor follows its type.
+SORT_MEMBER_DOCS       = NO
+SORT_BRIEF_DOCS        = NO
+SORT_GROUP_NAMES       = NO
+ALPHABETICAL_INDEX     = YES
+
+#---------------------------------------------------------------------------
+# Preprocessing
+#---------------------------------------------------------------------------
+# CMDBM_API is an export decoration and would otherwise show up in every
+# signature.
+ENABLE_PREPROCESSING   = YES
+MACRO_EXPANSION        = YES
+EXPAND_ONLY_PREDEF     = YES
+SKIP_FUNCTION_MACROS   = NO
+PREDEFINED             = CMDBM_API= \
+                         CMDBM_STATIC=static \
+                         DOXYGEN=1
+
+#---------------------------------------------------------------------------
+# Warnings - these are how documentation gaps get noticed
+#---------------------------------------------------------------------------
+QUIET                  = YES
+WARNINGS               = YES
+WARN_IF_UNDOCUMENTED   = YES
+WARN_IF_DOC_ERROR      = YES
+WARN_IF_INCOMPLETE_DOC = YES
+WARN_NO_PARAMDOC       = YES
+WARN_AS_ERROR          = NO
+WARN_LOGFILE           = doxygen.log
+
+#---------------------------------------------------------------------------
+# HTML output
+#---------------------------------------------------------------------------
+GENERATE_TREEVIEW      = YES
+DISABLE_INDEX          = NO
+FULL_SIDEBAR           = NO
+HTML_COLORSTYLE        = TOGGLE
+SEARCHENGINE           = YES
+HTML_DYNAMIC_SECTIONS  = NO
+
+# graphviz is not required to build these docs.
+HAVE_DOT               = NO

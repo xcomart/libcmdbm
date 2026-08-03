@@ -142,6 +142,10 @@ ENDIF ( SUPPORT_ODBC )
 SET_TARGET_PROPERTIES ( cmdbm PROPERTIES VERSION ${LIBCMDBM_VERSION_STRING} )
 SET_TARGET_PROPERTIES ( cmdbmStatic PROPERTIES OUTPUT_NAME cmdbm )
 
+# the API reference. adds the cmdbm_docs target when doxygen is installed,
+# and says so when it is not.
+ADD_SUBDIRECTORY ( doc )
+
 # BUILD_TESTS is shared with the libcmutils submodule. the tests of this
 # project are named cmdbm_*, so 'ctest -R cmdbm_' runs only those.
 IF ( BUILD_TESTS )
