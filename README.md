@@ -8,6 +8,11 @@ A MyBatis-like database mapping library for C.
 [![Language: C99](https://img.shields.io/badge/language-C99-blue.svg)](#4-building)
 [![Databases](https://img.shields.io/badge/databases-MariaDB%20%7C%20MySQL%20%7C%20PostgreSQL%20%7C%20SQLite%20%7C%20Oracle%20%7C%20ODBC-blue.svg)](#63-connection-parameters-per-module)
 [![Platforms](https://img.shields.io/badge/platforms-Linux%20%7C%20macOS-lightgrey.svg)](#4-building)
+[![API reference](https://img.shields.io/badge/docs-API%20reference-brightgreen.svg)](https://xcomart.github.io/libcmdbm/api/)
+
+📖 **[API reference](https://xcomart.github.io/libcmdbm/api/)** — every type and
+method of `libcmdbm.h`, grouped by subject. This page is the guided tour; that
+one is the lookup.
 
 * [1. About](#1-about)
 * [2. Features](#2-features)
@@ -571,9 +576,11 @@ All types are declared in `src/libcmdbm.h`. Methods are invoked with libcmutils'
 `obj->Method(obj, args...)`. Note that `CMCall` cannot be nested — assign
 intermediate results to local variables.
 
-The section below is the summary; the header carries a doc comment on every
-declaration, and `cmake --build build --target cmdbm_docs` turns those into a
-browsable reference under `doc/html` — see [doc/README.md](doc/README.md).
+The section below is the summary. The header carries a doc comment on every
+declaration, published as the
+**[API reference](https://xcomart.github.io/libcmdbm/api/)** — the same pages
+are built locally with `cmake --build build --target cmdbm_docs`, see
+[doc/README.md](doc/README.md).
 
 ### 8.1 Library lifecycle
 
