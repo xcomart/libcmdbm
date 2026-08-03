@@ -165,15 +165,41 @@ ctest --test-dir build -R cmdbm_ --output-on-failure
 
 | Test | Covers |
 |---|---|
-| `cmdbm_config_test` | JSON configuration: type lookup, which keys reach the module, mapper loading |
+| `cmdbm_config_test` | configuration in both forms: type lookup, which keys reach the module, mapper loading, logging flags |
 | `cmdbm_mapper_test` | `resultType`, `fetchSize` and cursor iteration |
 | `cmdbm_libinit_test` | `LibraryInit` / `LibraryClear` reference counting |
+| `cmdbm_pool_test` | which statement validates a pooled connection, and when it is run |
 | `cmdbm_sqlite_test` | the SQLite module end to end against a real database file |
+| `cmdbm_maria_test` | the MySQL/MariaDB module against a server |
+| `cmdbm_pgsql_test` | the PostgreSQL module against a server |
 
-The first three run against a mock DBMS module ([test/mockdb.c](test/mockdb.c))
-and need no database at all; the SQLite test is skipped when
-`SUPPORT_SQLITE` is off. The modules of the client/server databases have no
-automated coverage — they need a server to talk to.
+The first four run against a mock DBMS module ([test/mockdb.c](test/mockdb.c))
+and need no database at all; the SQLite test is skipped when `SUPPORT_SQLITE`
+is off.
+
+The two integration tests need a server to talk to.
+[test/docker/compose.yml](test/docker/compose.yml) brings up a MariaDB 11 on
+host port 13306 and a PostgreSQL 17 on host port 15432, both with the database
+`cmdbmtest` and the account `cmdbm`/`cmdbm`;
+[test/docker/env.sh](test/docker/env.sh) exports the `CMDBM_TEST_MARIA_*` and
+`CMDBM_TEST_PGSQL_*` variables the tests read:
+
+```sh
+docker compose -f test/docker/compose.yml up -d
+. test/docker/env.sh
+ctest --test-dir build -R cmdbm_ --output-on-failure
+docker compose -f test/docker/compose.yml down -v
+```
+
+A test whose variables are not set exits with 77, which ctest reports as a
+skip, so the suite is green on a checkout without docker as well — 7 passed
+with the servers up, 5 passed and 2 skipped without them.
+
+Both integration tests cover the same ground: bind variables of every JSON
+type, `GetObject` / `GetRow` / `GetRowSet`, `resultType="value"`, the `<where>`
+/ `<if>` / `<foreach>` tags, transaction commit and rollback, cursor iteration
+with a `fetchSize`, `<selectKey>` (a sequence read `BEFORE` on PostgreSQL, an
+auto-increment read `AFTER` on MariaDB) and OUT parameters.
 
 ### Windows
 
@@ -339,11 +365,17 @@ database.
 
 ## 6. Configuration reference
 
-The configuration file is JSON, read by `CMDBM_ContextCreate`. All object keys
-are case-insensitive (they are lowercased before use), so `filePattern`,
-`filepattern` and `FILEPATTERN` are the same key. `data/cmdbm_config.json` is a
-sample, and `data/cmdbm_config.dtd` describes the equivalent (not yet
-implemented) XML form.
+The configuration file read by `CMDBM_ContextCreate` may be written in JSON or
+in XML. The form is decided by the content, not by the file name: a file whose
+first non-blank character is `<` is parsed as XML, anything else as JSON. The
+XML form is converted into exactly the JSON structure described below and then
+handed to the same parser, so both forms mean the same thing — see
+[6.6](#66-the-xml-form).
+
+All object keys are case-insensitive (they are lowercased before use), so
+`filePattern`, `filepattern` and `FILEPATTERN` are the same key.
+`data/cmdbm_config.json` and `data/cmdbm_config.xml` are two spellings of one
+sample configuration, and `data/cmdbm_config.dtd` describes the XML form.
 
 ### 6.1 Top level
 
@@ -361,14 +393,15 @@ implemented) XML form.
 | `charset` | string | database character set, defaults to `utf-8` |
 | `pool` | object | pool settings, see below |
 | `mappers` | array | mapper entries, see below |
+| `monitorInterval` | number | seconds between two mapper rescans, defaults to 30 |
 | `params` | object | connection parameters passed to the DBMS module |
 
 Every scalar (non-object, non-array) key of the datasource entry is *also*
 copied into the parameter object handed to the module, so `"host": "..."` may be
 written either at the top level of the entry or inside `params`. The keys listed
-in the table above (`type`, `id`, `charset`, `pool`, `mappers`, `params`)
-describe the datasource itself and are never forwarded as connection
-parameters.
+in the table above (`type`, `id`, `charset`, `monitorInterval`, `pool`,
+`mappers`, `params`) describe the datasource itself and are never forwarded as
+connection parameters.
 
 ### 6.3 Connection parameters per module
 
@@ -421,10 +454,125 @@ database needs, `select 1 from dual` on Oracle and `select 1` elsewhere.
 | `filePattern` | `mapperSet` | glob pattern (`*`, `?`, `[a-z]`, `**/`) |
 | `recursive` | `mapperSet` | descend into subdirectories |
 
-Mapper files and mapper sets are re-checked every 30 seconds by default; call
-`CMCall(db, SetMonitor, seconds)` before `AddDatabase` to change the interval.
-Changed files are re-parsed and swapped in, deleted files are dropped, and new
-files matching a mapper set are picked up.
+Mapper files and mapper sets are re-checked every 30 seconds by default. The
+interval is set in the configuration with the `monitorInterval` key of the
+datasource entry (`<Mappers monitorInterval="10">` in the XML form), or in code
+with `CMCall(db, SetMonitor, seconds)` before `AddDatabase`. Changed files are
+re-parsed and swapped in, deleted files are dropped, and new files matching a
+mapper set are picked up.
+
+### 6.6 The XML form
+
+The same configuration may be written as XML; `CMDBM_ContextCreate` recognizes
+it by its first non-blank character being `<`. The document is converted into
+the JSON structure of the sections above, so every key described there exists
+in both forms. The rules of the conversion:
+
+| XML | Becomes |
+|---|---|
+| `<Configuration>` | the root object |
+| `<Databases>` | the `databases` array |
+| a child of `<Databases>` | one datasource entry — **the tag name is its `type`**, so `<PgSql id="…">` is `"type": "PgSql"`. Any key registered with `CMDBM_RegisterDBMS` may be spelled as a tag |
+| an attribute of a datasource tag | a key of the entry: `id="sales"` is `"id": "sales"` |
+| a scalar child tag | the same: `<Host>127.0.0.1</Host>` is `"host": "127.0.0.1"`. When a setting is given both ways the child tag wins |
+| `<Param key="k" value="v"/>` or `<Param key="k">v</Param>` | `params.k`; the `value` attribute wins over the text |
+| `<Pool confRef="…" …/>` | the `pool` object, from its attributes and scalar child tags |
+| `<Mappers monitorInterval="10">` | the `mappers` array; `monitorInterval` belongs to the datasource, not to a mapper |
+| `<Mapper file="p"/>` | `{ "type": "mapper", "filePath": "p" }` — the text content is used when there is no attribute |
+| `<MapperSet basePath="" filePattern="" recursive=""/>` | `{ "type": "mapperSet", … }` |
+| `<Logging>` with `<QueryId show="…"/>`, `<Query show="…"/>`, `<Result show="…"/>` | the `logging` object, see [6.7](#67-logging-section) |
+| `<PoolConfigurations>` with `<PoolConfig id="…" …/>` | the `poolConfigurations` array |
+
+Tag and attribute names are matched case-insensitively, like the JSON keys. An
+unknown tag or attribute is skipped with a warning rather than rejected, so a
+configuration carrying settings of a newer version still loads.
+
+The datasource of [5.1](#51-configuration--cmdbm_configjson) written as XML:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE Configuration SYSTEM "cmdbm_config.dtd">
+<Configuration>
+    <Databases>
+        <PgSql id="sales" charset="utf-8">
+            <Host>127.0.0.1</Host>
+            <Port>5432</Port>
+            <Database>salesdb</Database>
+            <User>scott</User>
+            <Password>tiger</Password>
+            <Pool confRef="basePoolConfig" />
+            <Mappers monitorInterval="30">
+                <MapperSet basePath="./mappers" filePattern="*.xml"
+                        recursive="true" />
+            </Mappers>
+        </PgSql>
+    </Databases>
+    <PoolConfigurations>
+        <PoolConfig id="basePoolConfig" pingInterval="30">
+            <InitCount>5</InitCount>
+            <MaxCount>100</MaxCount>
+            <TestSql>select 1</TestSql>
+        </PoolConfig>
+    </PoolConfigurations>
+</Configuration>
+```
+
+`data/cmdbm_config.xml` is the full sample, one datasource per built-in module,
+and validates against `data/cmdbm_config.dtd`:
+
+```sh
+xmllint --valid --noout data/cmdbm_config.xml
+```
+
+A DTD cannot express that the tag name of a datasource is its DBMS type, so the
+DTD lists the built-in types only — a configuration using a module registered
+with `CMDBM_RegisterDBMS` will not validate against it although it loads. The
+`<!DOCTYPE>` declaration is optional; libcmdbm does not validate.
+
+### 6.7 Logging section
+
+The optional top-level `logging` section chooses what a session writes to the
+log. It is the counterpart of [10. Logging](#10-logging): that section is about
+configuring the libcmutils loggers, this one about what libcmdbm gives them.
+
+```json
+"logging": {
+    "queryId": true,
+    "query": true,
+    "result": false
+}
+```
+
+```xml
+<Logging>
+    <QueryId show="true" />
+    <Query show="true" />
+    <Result show="false" />
+</Logging>
+```
+
+| Key | Default | What it adds |
+|---|---|---|
+| `queryId` | `true` | the `dbid.sqlid` of the statement about to run |
+| `query` | `true` | the SQL text actually sent to the database |
+| `result` | `false` | what the call returned |
+
+Values are a JSON boolean or the strings `"true"` / `"false"`; the keys are
+case-insensitive like every other configuration key. The defaults above apply
+when the section is absent, and to a context created without a configuration
+file at all.
+
+Everything the section controls is written at **DEBUG** level to the
+`cmdbm.session` logger, so it is visible only when that logger is set to DEBUG.
+`queryId` and `query` together decide the line logged just before a statement
+runs — both on gives `dbid.sqlid - SQL`, `queryId` alone the id, `query` alone
+the SQL text, both off nothing at all.
+
+`result` adds a second line after the call: the affected row count for
+`Execute`, the result as JSON for `GetObject`, `GetRow` and `GetRowSet`, and
+one line per row for `ForEachRow`. It is off by default because a result set
+can be large. A call which failed does not log a result — it has already
+logged its error.
 
 ## 7. Mapper file reference
 
@@ -438,12 +586,31 @@ needs an `id` that does **not** contain a dot. The full query id is
 | Syntax | Meaning |
 |---|---|
 | `#{name}` | bind variable — emits the DBMS-native placeholder (`?` for MySQL/MariaDB/ODBC, `$n::type` for PostgreSQL, `?n` for SQLite, `:n` for Oracle) and appends `params["name"]` to the bind list |
-| `#{name, mode=out}` | OUT parameter — bound as above, and the value produced by the DBMS is written back into `params["name"]` |
+| `#{name, mode=out}` | OUT parameter — emits a placeholder as above, and the value the procedure produced is written back into `params["name"]` |
 | `${name}` | literal substitution of `params["name"]` into the SQL text; use only for identifiers you control (table names, sort columns) — it is *not* escaped |
 
 Bind values keep their JSON type: long, double, boolean, string or null. A
 missing key for `#{}` fails the query build; a missing key for `#{…,mode=out}`
 is created as a string placeholder.
+
+How an OUT parameter is read back is up to the module, and so are its limits:
+
+| Module | OUT parameters |
+|---|---|
+| `MYSQL` / `MARIA` | supported. The server returns the OUT and INOUT values as a result set of its own, which only a statement run through `Execute` reads — write the `CALL` as `<insert>`, `<update>` or `<delete>`. A `<select>` cannot read them and says so in the log |
+| `PGSQL` | supported. PostgreSQL has no OUT binding: `CALL procedure(…)` hands the OUT and INOUT values back as a single result row, whose columns are written into the OUT parameters in declaration order |
+| `ORACLE` / `ODBC` | the modules bind OUT parameters, but that code has never been exercised — see [11. Known issues](#11-known-issues-and-limitations) |
+| `SQLITE` | not applicable — SQLite has no stored procedures |
+
+```xml
+<!-- both on MariaDB and on PostgreSQL: a CALL run through Execute -->
+<update id="callSum">
+    call p_sum(#{a}, #{b}, #{total, mode=out}, #{label, mode=out})
+</update>
+```
+
+After `CMCall(sess, Execute, "sales", "user.callSum", params)` the keys `total`
+and `label` of `params` hold what the procedure produced.
 
 ### 7.2 Tags
 
@@ -793,18 +960,24 @@ refers to its appenders with `appenderRef`. libcmdbm uses these logger names:
 | `cmdbm.module.*` | DBMS specific messages |
 
 Set `cmdbm.session` to `DEBUG` to see each query id together with the SQL text
-actually sent to the database.
+actually sent to the database. *What* that logger is given — the query id, the
+SQL text, the result — is chosen in the configuration file instead, see
+[6.7 Logging section](#67-logging-section).
 
 ## 11. Known issues and limitations
 
 Current state of version 0.1.2 — worth knowing before you file a bug:
 
-* **XML configuration is not implemented.** `data/cmdbm_config.xml` and
-  `cmdbm_config.dtd` document the intended shape; only JSON is parsed today.
-* **The `Logging` configuration section is not implemented.**
-* **Oracle OUT parameters** are the only place `#{…, mode=out}` is fully
-  meaningful; PostgreSQL has no OUT binding and returns procedure results as an
-  ordinary result set.
+* **OUT parameters are unverified on Oracle and ODBC.** `#{…, mode=out}` works
+  and is covered by the integration tests on MySQL/MariaDB and PostgreSQL. The
+  Oracle and ODBC modules have carried OUT binding code for as long, but a bug
+  in the mapper kept `mode=out` from ever reaching a module, so that code has
+  never run; there was no server to try it against once the bug was fixed.
+  Treat it as untested rather than as working.
+* **MySQL/MariaDB cannot read OUT parameters from a `<select>`.** The values
+  arrive as a separate result set which only `Execute` reads, so a `CALL` with
+  OUT parameters has to be written as `<insert>`, `<update>` or `<delete>` —
+  see [7.1](#71-parameter-expressions).
 
 ## 12. Repository layout
 
@@ -814,7 +987,8 @@ modules/        DBMS modules: cmdbm_mysql.c, cmdbm_pgsql.c, cmdbm_sqlite.c,
                 cmdbm_oracle.c, cmdbm_odbc.c
 data/           sample configuration, sample sqlmap and DTDs
 doc/            doxygen configuration for the API reference
-test/           test suite, with a mock DBMS module and its mapper/config data
+test/           test suite, with a mock DBMS module, its mapper/config data
+                and test/docker/ - the servers the integration tests need
 libcmutils/     git submodule — base utility library (JSON, XML, pool, log, …)
 .github/        CI workflow building and testing on Linux and macOS
 CMakeLists.txt  build definition
