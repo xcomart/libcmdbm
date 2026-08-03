@@ -1,0 +1,29 @@
+{
+    "databases": [
+        {
+            "type": "MOCK",
+            "id": "withsql",
+            "pool": {
+                "initCount": 1,
+                "maxCount": 2,
+                "pingInterval": 60,
+                "testSql": "select mock_ping"
+            },
+            "mappers": [
+                { "type": "mapper", "filePath": "data/mapper.xml" }
+            ]
+        },
+        {
+            "type": "MOCK2",
+            "id": "modulesql",
+            "pool": {
+                "initCount": 1,
+                "maxCount": 2,
+                "pingInterval": 60
+            },
+            "mappers": [
+                { "type": "mapper", "filePath": "data/mapper.xml" }
+            ]
+        }
+    ]
+}

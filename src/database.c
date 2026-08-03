@@ -200,7 +200,9 @@ CMDBM_STATIC CMDBM_PoolConfig *CMDBM_PoolConfigClone(CMDBM_PoolConfig *pconf)
 {
     CMDBM_PoolConfig *res = CMAlloc(sizeof(CMDBM_PoolConfig));
     memcpy(res, pconf, sizeof(CMDBM_PoolConfig));
-    res->testsql = CMStrdup(pconf->testsql);
+    // no test statement is a valid configuration: the one of the module is
+    // used then. CMStrdup(NULL) would log about it.
+    res->testsql = pconf->testsql? CMStrdup(pconf->testsql):NULL;
     return res;
 }
 
@@ -563,16 +565,29 @@ CMDBM_STATIC CMBool CMDBM_DatabaseInitialize(
         CMDBM_DatabaseEx *db, CMUTIL_Timer *timer, const char *pgcs)
 {
     long interval;
+    uint32_t pingterm;
+    CMPoolItemTestCB testproc = NULL;
     CMDBM_Database_Internal *idb = (CMDBM_Database_Internal*)db;
     idb->pgcs = CMStrdup(pgcs);
     idb->initres = idb->modif->Initialize(idb->dbcs, idb->pgcs);
+
+    // connections are validated only where the configuration asks for it:
+    // on every checkout, by the periodic ping, or - with neither - not at
+    // all, in which case the pool needs no test callback.
+    if (idb->poolconf->testonborrow || idb->poolconf->pingtest)
+        testproc = CMDBM_DatabasePoolTestProc;
+    // the pool counts in milliseconds, the configuration in seconds.
+    // a period of zero would make the ping task spin.
+    pingterm = idb->poolconf->pingterm? idb->poolconf->pingterm:30;
+
     idb->connpool = CMUTIL_PoolCreate(
                 (int)idb->poolconf->initcnt,
                 (int)idb->poolconf->maxcnt,
                 CMDBM_DatabasePoolCreateProc,
                 CMDBM_DatabasePoolDestroyProc,
-                CMDBM_DatabasePoolTestProc,
-                30, CMTrue, idb, timer);
+                testproc,
+                (long)pingterm * 1000,
+                idb->poolconf->testonborrow, idb, timer);
 
     // do initial mapper load
     CMDBM_DatabaseMapperReloader(idb);
@@ -727,7 +742,17 @@ CMDBM_Database *CMDBM_DatabaseCreateCustom(
     res->poolconf = CMDBM_PoolConfigClone(poolconf);
     res->params = (CMUTIL_JsonObject*)CMCall(&(params->parent), Clone);
     res->rwlock = CMUTIL_RWLockCreate();
-    res->testqry = CMUTIL_StringCreateEx(64, modif->GetTestQuery());
+    // the pool validates with the statement the configuration gives, and
+    // with the one of the module when it gives none - which is what keeps
+    // 'select 1 from dual' the default on Oracle.
+    if (res->poolconf->testsql == NULL && modif->GetTestQuery)
+        res->poolconf->testsql = CMStrdup(modif->GetTestQuery());
+    if (res->poolconf->testsql == NULL) {
+        CMLogWarn("neither the pool configuration of '%s' nor its module "
+                  "provides a connection test statement.", sourceid);
+        res->poolconf->testsql = CMStrdup("select 1");
+    }
+    res->testqry = CMUTIL_StringCreateEx(64, res->poolconf->testsql);
     return (CMDBM_Database*)res;
 }
 

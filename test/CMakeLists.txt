@@ -24,6 +24,7 @@ ENDFUNCTION ()
 ADD_CMDBM_TEST ( config_test )
 ADD_CMDBM_TEST ( mapper_test )
 ADD_CMDBM_TEST ( libinit_test )
+ADD_CMDBM_TEST ( pool_test )
 
 # the only module which can be exercised without a database server
 IF ( SUPPORT_SQLITE )
