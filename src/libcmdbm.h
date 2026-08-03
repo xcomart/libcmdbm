@@ -298,11 +298,11 @@ struct CMDBM_ModuleInterface {
     /**
      * @brief The statement which proves a pooled connection still works.
      *
-     * Read when the datasource is created, and run through #GetOneValue
-     * every time a connection is borrowed, so it must return exactly one
-     * value - "select 1" for most databases, "select 1 from dual" for
-     * Oracle. It is what every datasource of this module validates with:
-     * CMDBM_PoolConfig::testsql does not override it today.
+     * Read when the datasource is created, and run through #GetOneValue to
+     * validate a pooled connection, so it must return exactly one value -
+     * "select 1" for most databases, "select 1 from dual" for Oracle. It is
+     * what a datasource validates with unless its pool configuration names
+     * a statement of its own in CMDBM_PoolConfig::testsql.
      *
      * @return A static string. It must not be NULL.
      */
@@ -559,23 +559,31 @@ CMDBM_API CMBool CMDBM_RegisterDBMS(
  */
 typedef struct CMDBM_PoolConfig {
     /**
-     * @brief Seconds between two validity checks of idle connections.
+     * @brief Seconds between two rounds of the idle connection check.
      *
-     * Read from the configuration but not applied yet: connections are
-     * currently validated on every checkout instead.
+     * 0 is taken as the default of 30 - the check is a repeating task and
+     * cannot run with no period at all.
      */
     uint32_t pingterm;
     /**
-     * @brief Whether idle connections are checked at all.
+     * @brief Whether idle connections are checked every @c pingterm
+     *        seconds.
      *
-     * Read from the configuration but not applied yet - see @c pingterm.
+     * The check runs @c testsql on each connection currently sitting in the
+     * pool, and replaces the ones which do not answer - which is what keeps
+     * a pool usable across a database restart or an idle timeout on the
+     * server.
      */
     CMBool pingtest;
     /**
      * @brief Whether a connection is validated when it is borrowed.
      *
-     * Read from the configuration but not applied yet: every checkout is
-     * validated regardless.
+     * The safe setting, and the default: a session never gets a connection
+     * the database has dropped meanwhile. It costs one round trip per
+     * checkout, which is what @c pingtest alone avoids.
+     *
+     * With this and @c pingtest both off, connections are handed out
+     * without ever being tested.
      */
     CMBool testonborrow;
     /** @brief Connections opened when the datasource starts up. */
@@ -586,9 +594,10 @@ typedef struct CMDBM_PoolConfig {
     /**
      * @brief The statement which validates a connection.
      *
-     * Copied by the datasource but not applied yet: the statement actually
-     * run is the module's own, CMDBM_ModuleInterface::GetTestQuery. NULL is
-     * accepted.
+     * NULL takes the one of the module,
+     * CMDBM_ModuleInterface::GetTestQuery - which is how an Oracle
+     * datasource ends up validating with "select 1 from dual" without
+     * anything having to say so.
      */
     char *testsql;
 } CMDBM_PoolConfig;

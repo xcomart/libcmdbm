@@ -18,9 +18,15 @@ typedef struct MockDbStat {
     int                 libclear;       /* LibraryClear call count      */
     int                 opened;         /* opened connections           */
     int                 closed;         /* closed connections           */
+    int                 onevalue;       /* GetOneValue call count       */
     uint32_t            fetchsize;      /* fetchSize of the last cursor */
+    char                lastqry[256];   /* SQL of the last GetOneValue  */
     CMUTIL_JsonObject   *params;        /* last connection parameters   */
 } MockDbStat;
+
+/* distinct per module, so that a pool test can tell which one it ran */
+#define MOCKDB_TESTQUERY    "select 1 from mock"
+#define MOCKDB2_TESTQUERY   "select 1 from mock2"
 
 /* index 0 is 'MOCK', index 1 is 'MOCK2' */
 MockDbStat *MockDbStatOf(int index);

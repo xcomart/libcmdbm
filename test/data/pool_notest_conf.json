@@ -1,0 +1,32 @@
+{
+    "databases": [
+        {
+            "type": "MOCK",
+            "id": "notest",
+            "pool": {
+                "initCount": 1,
+                "maxCount": 2,
+                "pingInterval": 60,
+                "pingTest": false,
+                "testOnBorrow": false
+            },
+            "mappers": [
+                { "type": "mapper", "filePath": "data/mapper.xml" }
+            ]
+        },
+        {
+            "type": "MOCK2",
+            "id": "pingonly",
+            "pool": {
+                "initCount": 1,
+                "maxCount": 2,
+                "pingInterval": 3,
+                "pingTest": true,
+                "testOnBorrow": false
+            },
+            "mappers": [
+                { "type": "mapper", "filePath": "data/mapper.xml" }
+            ]
+        }
+    ]
+}

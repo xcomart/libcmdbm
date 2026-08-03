@@ -303,12 +303,12 @@ and populated programmatically:
 
 ```c
 CMDBM_PoolConfig pool = {
-    30,         /* pingterm     - not applied yet        */
-    CMTrue,     /* pingtest     - not applied yet        */
-    CMTrue,     /* testonborrow - not applied yet        */
+    30,         /* pingterm     - idle test every 30s    */
+    CMTrue,     /* pingtest                              */
+    CMTrue,     /* testonborrow                          */
     2,          /* initcnt                               */
     10,         /* maxcnt                                */
-    "select 1"  /* testsql      - not applied yet        */
+    NULL        /* testsql      - NULL: the module's own */
 };
 CMUTIL_JsonObject *cparm = CMUTIL_JsonObjectCreate();
 CMDBM_Database *db;
@@ -382,15 +382,21 @@ parameters.
 | `confRef` | — | id of an entry in `poolConfigurations` to inherit from |
 | `initCount` | 5 | connections opened at start-up |
 | `maxCount` | 20 (100 in the sample preset) | hard limit of pooled connections |
-| `pingInterval` | 30 | seconds between idle-connection ping tests — *parsed, not applied yet* |
-| `testSql` | `select 1` | query for the borrow test — *parsed, not applied yet* |
+| `pingInterval` | 30 | seconds between two rounds of the idle-connection test |
+| `pingTest` | `true` | whether idle connections are tested at all |
+| `testOnBorrow` | `true` | whether a connection is tested when a session takes it |
+| `testSql` | the statement of the module | query used for those tests |
 
 A checkout waits at most 5 seconds for a free connection before failing.
 
-Only `initCount` and `maxCount` reach the pool today. Every connection is
-validated when it is borrowed, using the test statement of the DBMS module
-(`select 1`, `select 1 from dual` on Oracle) rather than `testSql`, and
-`pingInterval` does not change that.
+A connection which fails its test is closed and replaced, which is what keeps
+a pool usable across a database restart. `testOnBorrow` is the safe setting —
+a session never gets a dead connection — at one round trip per checkout;
+turning it off and leaving `pingTest` on moves the cost to the background
+task. With both off, connections are handed out without ever being tested.
+
+Leaving `testSql` out is usually right: each module brings the statement its
+database needs, `select 1 from dual` on Oracle and `select 1` elsewhere.
 
 ### 6.5 Mapper entries
 
@@ -789,9 +795,6 @@ Current state of version 0.1.1 — worth knowing before you file a bug:
 * **XML configuration is not implemented.** `data/cmdbm_config.xml` and
   `cmdbm_config.dtd` document the intended shape; only JSON is parsed today.
 * **The `Logging` configuration section is not implemented.**
-* **Most pool settings are parsed but not applied.** Only `initCount` and
-  `maxCount` reach the connection pool; `pingInterval`, `testSql` and the
-  matching `CMDBM_PoolConfig` fields have no effect yet — see 6.4.
 * **Oracle OUT parameters** are the only place `#{…, mode=out}` is fully
   meaningful; PostgreSQL has no OUT binding and returns procedure results as an
   ordinary result set.
