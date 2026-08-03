@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mapper namespace="u">
+    <!-- the schema is set up and torn down by the test itself, so that
+         running it twice in a row is the same as running it once. -->
+    <update id="dropTable">
+        drop table if exists t_user
+    </update>
+
+    <update id="createTable">
+        create table t_user (
+            user_id bigint not null auto_increment primary key,
+            name    varchar(50) not null,
+            age     bigint,
+            score   double,
+            active  boolean)
+    </update>
+
+    <update id="dropProcedure">
+        drop procedure if exists p_sum
+    </update>
+
+    <!-- a single statement body needs no delimiter: the client library
+         sends the whole text as one statement anyway. -->
+    <update id="createProcedure">
+        create procedure p_sum(
+                in  a bigint, in  b bigint,
+                out total bigint, out label varchar(100))
+        set total = a + b,
+            label = concat('sum of ', a, ' and ', b)
+    </update>
+
+    <insert id="insertUser">
+        <selectKey keyProperty="userId" order="AFTER">
+            select last_insert_id()
+        </selectKey>
+        insert into t_user (name, age, score, active)
+        values (#{name}, #{age}, #{score}, #{active})
+    </insert>
+
+    <select id="countUsers">
+        select count(*) from t_user
+    </select>
+
+    <select id="selectByName">
+        select user_id, name, age, score, active from t_user
+        where name = #{name}
+    </select>
+
+    <select id="searchUsers">
+        select user_id, name, age, score, active from t_user
+        <where>
+            <if test="minAge != null"> and age &gt;= #{minAge} </if>
+            <if test="name != null">   and name = #{name}      </if>
+        </where>
+        order by user_id
+    </select>
+
+    <select id="selectInNames">
+        select user_id, name from t_user
+        where name in
+        <foreach collection="names" item="nm" open="(" close=")" separator=",">
+            #{nm}
+        </foreach>
+    </select>
+
+    <select id="selectNames" resultType="value">
+        select name from t_user order by user_id
+    </select>
+
+    <select id="selectCursor" fetchSize="2">
+        select user_id, name from t_user order by user_id
+    </select>
+
+    <!-- the OUT parameters of a procedure come back as a result set of
+         their own, which only a statement run through Execute reads. -->
+    <update id="callSum">
+        call p_sum(#{a}, #{b}, #{total, mode=out}, #{label, mode=out})
+    </update>
+</mapper>

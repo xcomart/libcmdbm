@@ -30,3 +30,29 @@ ADD_CMDBM_TEST ( pool_test )
 IF ( SUPPORT_SQLITE )
     ADD_CMDBM_TEST ( sqlite_test )
 ENDIF ()
+
+# the modules of the client/server databases need a server to talk to.
+# test/docker/compose.yml brings one of each up, test/docker/env.sh points
+# the tests at them - without those variables a test exits with 77, which
+# ctest reports as a skip instead of a failure.
+FUNCTION ( ADD_CMDBM_DBTEST NAME )
+    ADD_CMDBM_TEST ( ${NAME} )
+    SET_TESTS_PROPERTIES ( cmdbm_${NAME} PROPERTIES SKIP_RETURN_CODE 77 )
+ENDFUNCTION ()
+
+# MariaDB and MySQL are one module registered under two keys: the test runs
+# against whichever of them this build knows.
+IF ( SUPPORT_MARIA OR SUPPORT_MYSQL )
+    ADD_CMDBM_DBTEST ( maria_test )
+    IF ( SUPPORT_MARIA )
+        TARGET_COMPILE_DEFINITIONS ( cmdbm_maria_test
+            PRIVATE CMDBM_TEST_DBTYPE="MARIA" )
+    ELSE ()
+        TARGET_COMPILE_DEFINITIONS ( cmdbm_maria_test
+            PRIVATE CMDBM_TEST_DBTYPE="MYSQL" )
+    ENDIF ()
+ENDIF ()
+
+IF ( SUPPORT_PGSQL )
+    ADD_CMDBM_DBTEST ( pgsql_test )
+ENDIF ()

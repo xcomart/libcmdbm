@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mapper namespace="u">
+    <!-- the schema is set up and torn down by the test itself, so that
+         running it twice in a row is the same as running it once. -->
+    <update id="dropTable">
+        drop table if exists t_user
+    </update>
+
+    <update id="createTable">
+        create table t_user (
+            user_id bigint primary key,
+            name    varchar(50) not null,
+            age     bigint,
+            score   double precision,
+            active  boolean)
+    </update>
+
+    <update id="dropSequence">
+        drop sequence if exists s_user
+    </update>
+
+    <update id="createSequence">
+        create sequence s_user
+    </update>
+
+    <update id="dropProcedure">
+        drop procedure if exists p_sum
+    </update>
+
+    <update id="createProcedure">
+        create procedure p_sum(
+                in  a bigint, in  b bigint,
+                out total bigint, out label varchar)
+        language plpgsql as $$
+        begin
+            total := a + b;
+            label := 'sum of ' || a || ' and ' || b;
+        end;
+        $$
+    </update>
+
+    <!-- PostgreSQL has no auto increment on a plain column: the key comes
+         from a sequence, read before the row is written. -->
+    <insert id="insertUser">
+        <selectKey keyProperty="userId" order="BEFORE">
+            select nextval('s_user')
+        </selectKey>
+        insert into t_user (user_id, name, age, score, active)
+        values (#{userId}, #{name}, #{age}, #{score}, #{active})
+    </insert>
+
+    <select id="countUsers">
+        select count(*) from t_user
+    </select>
+
+    <select id="selectByName">
+        select user_id, name, age, score, active from t_user
+        where name = #{name}
+    </select>
+
+    <select id="searchUsers">
+        select user_id, name, age, score, active from t_user
+        <where>
+            <if test="minAge != null"> and age &gt;= #{minAge} </if>
+            <if test="name != null">   and name = #{name}      </if>
+        </where>
+        order by user_id
+    </select>
+
+    <select id="selectInNames">
+        select user_id, name from t_user
+        where name in
+        <foreach collection="names" item="nm" open="(" close=")" separator=",">
+            #{nm}
+        </foreach>
+    </select>
+
+    <select id="selectNames" resultType="value">
+        select name from t_user order by user_id
+    </select>
+
+    <select id="selectCursor" fetchSize="2">
+        select user_id, name from t_user order by user_id
+    </select>
+
+    <!-- PostgreSQL cannot bind an OUT parameter: 'call' hands the values
+         of the OUT parameters back as its result row. -->
+    <update id="callSum">
+        call p_sum(#{a}, #{b}, #{total, mode=out}, #{label, mode=out})
+    </update>
+</mapper>
