@@ -41,18 +41,20 @@ CMDBM_STATIC const char *CMDBM_MySQL_GetDBMSKey()
 	return "MYSQL";
 }
 
+CMDBM_STATIC char *CMDBM_MySQL_Charset(const char *ocharset, char *outbuf);
+
 CMDBM_STATIC void *CMDBM_MySQL_Initialize(const char *dbcs, const char *prcs)
 {
 	CMDBM_MySQLCtx *res = CMAlloc(sizeof(CMDBM_MySQLCtx));
-	CMUTIL_String *temp;
+	char buf[128];
 	memset(res, 0x0, sizeof(CMDBM_MySQLCtx));
-	// mysql does not allow dash in character set name.
-	temp = CMUTIL_StringCreateEx(10, prcs);
-    res->prcs = CMCall(temp, Replace, "-", "");
-    CMCall(temp, Destroy);
-	temp = CMUTIL_StringCreateEx(10, dbcs);
-    res->dbcs = CMCall(temp, Replace, "-", "");
-    CMCall(temp, Destroy);
+	// mysql does not allow a separator in a character set name, and the
+	// name the connection is opened with has to match the one the pool was
+	// initialized with - so both are stripped through the same helper.
+	res->prcs = CMUTIL_StringCreateEx(
+				10, CMDBM_MySQL_Charset(prcs? prcs:"utf8", buf));
+	res->dbcs = CMUTIL_StringCreateEx(
+				10, CMDBM_MySQL_Charset(dbcs? dbcs:"utf8", buf));
 	return res;
 }
 
@@ -126,9 +128,9 @@ CMDBM_STATIC void *CMDBM_MySQL_OpenConnection(
 		if (mysql_real_connect(
 					sess->conn, shost, suser, spass, sdb, port, NULL,
                     CLIENT_MULTI_STATEMENTS)) {
-            char csbuf[100];
-            CMDBM_MySQL_Charset(CMCall(sess->ctx->prcs, GetCString), csbuf);
-			mysql_set_character_set(sess->conn, csbuf);
+            // Initialize already stripped the separators.
+            const char *cs = CMCall(sess->ctx->prcs, GetCString);
+			mysql_set_character_set(sess->conn, cs);
 			CMLogTrace("MySQL connection created.");
 			return sess;
 		} else {
@@ -222,7 +224,7 @@ CMDBM_STATIC void CMDBM_MySQL_RollbackTransaction(
 
 CMDBM_STATIC void CMDBM_MySQL_BindLong(
 		MYSQL_BIND *bind, CMUTIL_JsonValue *jval,
-		CMUTIL_Array *bufarr, CMUTIL_Json *out)
+		CMUTIL_Array *bufarr)
 {
     int64_t *pval = CMAlloc(sizeof(int64_t));
     *pval = CMCall(jval, GetLong);
@@ -230,12 +232,11 @@ CMDBM_STATIC void CMDBM_MySQL_BindLong(
 	bind->buffer = pval;
     bind->buffer_length = sizeof(int64_t);
     CMCall(bufarr, Add, pval, NULL);
-	CMUTIL_UNUSED(out);
 }
 
 CMDBM_STATIC void CMDBM_MySQL_BindDouble(
 		MYSQL_BIND *bind, CMUTIL_JsonValue *jval,
-		CMUTIL_Array *bufarr, CMUTIL_Json *out)
+		CMUTIL_Array *bufarr)
 {
 	double *pval = CMAlloc(sizeof(double));
     *pval = CMCall(jval, GetDouble);
@@ -243,17 +244,14 @@ CMDBM_STATIC void CMDBM_MySQL_BindDouble(
 	bind->buffer = pval;
 	bind->buffer_length = sizeof(double);
     CMCall(bufarr, Add, pval, NULL);
-	CMUTIL_UNUSED(out);
 }
 
 CMDBM_STATIC void CMDBM_MySQL_BindString(
 		MYSQL_BIND *bind, CMUTIL_JsonValue *jval,
-		CMUTIL_Array *bufarr, CMUTIL_Json *out)
+		CMUTIL_Array *bufarr)
 {
-	char buf[4096] = {0,};
     CMUTIL_String *sval = (CMUTIL_String*)CMCall(jval, GetString);
-    if (out) CMCall(sval, AddNString, buf, 4096);
-	bind->buffer_type = MYSQL_TYPE_VARCHAR;
+	bind->buffer_type = MYSQL_TYPE_STRING;
     bind->buffer = (void*)CMCall(sval, GetCString);
     bind->buffer_length = (uint64_t)CMCall(sval, GetSize);
 	CMUTIL_UNUSED(bufarr);
@@ -261,7 +259,7 @@ CMDBM_STATIC void CMDBM_MySQL_BindString(
 
 CMDBM_STATIC void CMDBM_MySQL_BindBoolean(
 		MYSQL_BIND *bind, CMUTIL_JsonValue *jval,
-		CMUTIL_Array *bufarr, CMUTIL_Json *out)
+		CMUTIL_Array *bufarr)
 {
 	char *pval = CMAlloc(1);
     *pval = (char)(0+CMCall(jval, GetBoolean));
@@ -269,18 +267,17 @@ CMDBM_STATIC void CMDBM_MySQL_BindBoolean(
 	bind->buffer = pval;
 	bind->buffer_length = 1;
     CMCall(bufarr, Add, pval, NULL);
-	CMUTIL_UNUSED(out);
 }
 CMDBM_STATIC void CMDBM_MySQL_BindNull(
 		MYSQL_BIND *bind, CMUTIL_JsonValue *jval,
-		CMUTIL_Array *bufarr, CMUTIL_Json *out)
+		CMUTIL_Array *bufarr)
 {
 	bind->buffer_type = MYSQL_TYPE_NULL;
-	CMUTIL_UNUSED(jval, bufarr, out);
+	CMUTIL_UNUSED(jval, bufarr);
 }
 
 typedef void (*CMDBM_MySQL_BindProc)(
-		MYSQL_BIND*,CMUTIL_JsonValue*,CMUTIL_Array*,CMUTIL_Json*);
+		MYSQL_BIND*,CMUTIL_JsonValue*,CMUTIL_Array*);
 static CMDBM_MySQL_BindProc g_cmdbm_mysql_bindprocs[]={
 	CMDBM_MySQL_BindLong,
 	CMDBM_MySQL_BindDouble,
@@ -289,39 +286,9 @@ static CMDBM_MySQL_BindProc g_cmdbm_mysql_bindprocs[]={
 	CMDBM_MySQL_BindNull
 };
 
-CMDBM_STATIC void CMDBM_MySQL_SetOutValue(
-		MYSQL_BIND *bind, CMUTIL_JsonValue *jval)
-{
-	if (bind->is_null_value) {
-        CMCall(jval, SetNull);
-	} else {
-		CMUTIL_String *temp;
-	    size_t len;
-		switch (bind->buffer_type) {
-		case MYSQL_TYPE_TINY:
-            CMCall(jval, SetBoolean, (CMBool)*((char*)bind->buffer));
-			break;
-		case MYSQL_TYPE_LONGLONG:
-            CMCall(jval, SetLong, (int64_t)*((int64_t*)bind->buffer));
-			break;
-		case MYSQL_TYPE_DOUBLE:
-            CMCall(jval, SetDouble, (double)*((double*)bind->buffer));
-			break;
-		case MYSQL_TYPE_VARCHAR:
-            temp = (CMUTIL_String*)CMCall(jval, GetString);
-		    len = CMCall(temp, GetSize) - bind->length_value;
-            CMCall(temp, CutTailOff, len);
-			break;
-		default:
-			CMLogErrorS("unknown type %d", bind->buffer_type);
-		}
-	}
-}
-
 CMDBM_STATIC MYSQL_STMT *CMDBM_MySQL_ExecuteBase(
 		CMDBM_MySQLSession *sess, CMUTIL_String *query,
-		CMUTIL_JsonArray *binds, CMUTIL_JsonObject *outs,
-		uint32_t fetchsize)
+		CMUTIL_JsonArray *binds, uint32_t fetchsize)
 {
     uint32_t i;
     size_t bsize = 0;
@@ -364,15 +331,12 @@ CMDBM_STATIC MYSQL_STMT *CMDBM_MySQL_ExecuteBase(
 
 	// bind variables.
 	for (i=0; i<bsize; i++) {
-		char ibuf[20];
         CMUTIL_Json *json = CMCall(binds, Get, i);
-		sprintf(ibuf, "%d", i);
         if (CMCall(json, GetType) == CMJsonTypeValue) {
 			CMUTIL_JsonValue *jval = (CMUTIL_JsonValue*)json;
-            CMUTIL_Json *out = CMCall(outs, Get, ibuf);
 			// type of json value
             g_cmdbm_mysql_bindprocs[CMCall(jval, GetValueType)](
-						&buffers[i], jval, array, out);
+						&buffers[i], jval, array);
 		} else {
 			CMLogError("binding variable is not value type JSON.");
 			goto FAILEDPOINT;
@@ -386,24 +350,7 @@ CMDBM_STATIC MYSQL_STMT *CMDBM_MySQL_ExecuteBase(
 		}
 	}
 
-	if (mysql_stmt_execute(stmt) == 0) {
-		if (outs) {
-            CMUTIL_StringArray *keys = CMCall(outs, GetKeys);
-            for (i=0; i<CMCall(keys, GetSize); i++) {
-                CMUTIL_String *sidx = (CMUTIL_String*)CMCall(keys, GetAt, i);
-                const char *cidx = CMCall(sidx, GetCString);
-				CMUTIL_JsonValue *jval =
-                        (CMUTIL_JsonValue*)CMCall(outs, Get, cidx);
-				long idx = strtol(cidx, NULL, 10);
-				if (idx >= 0 && (size_t)idx < bsize)
-					CMDBM_MySQL_SetOutValue(&buffers[idx], jval);
-				else
-					CMLogError("out parameter index(%ld) is "
-							   "out of bind range.", idx);
-			}
-            CMCall(keys, Destroy);
-		}
-	} else {
+	if (mysql_stmt_execute(stmt) != 0) {
 		MYSQL_LOGERROR(sess, "execute statement failed.");
 		goto FAILEDPOINT;
 	}
@@ -484,16 +431,113 @@ CMDBM_STATIC void CMDBM_MySQL_ResultAssignBoolean(
     CMCall(row, PutBoolean, finfo->name, bval);
 }
 
+// describes every column of the result set the statement currently stands
+// on, and binds a buffer to each. the field descriptions are added to
+// 'fields' in column order; the returned bind array belongs to the caller,
+// which releases it with CMFree once the result set has been read.
+CMDBM_STATIC MYSQL_BIND *CMDBM_MySQL_BindResult(
+		CMDBM_MySQLSession *sess, MYSQL_STMT *stmt, MYSQL_RES *meta,
+		CMUTIL_Array *fields)
+{
+	int i, fieldcnt = (int)mysql_num_fields(meta);
+	MYSQL_FIELD *ofields = mysql_fetch_fields(meta);
+	MYSQL_BIND *resbuf = CMAlloc(sizeof(MYSQL_BIND) * (uint64_t)fieldcnt);
+	memset(resbuf, 0x0, sizeof(MYSQL_BIND) * (uint64_t)fieldcnt);
+	for (i=0; i<fieldcnt; i++) {
+		MYSQL_FIELD *f = &ofields[i];
+		MYSQL_BIND *b = &(resbuf[i]);
+		CMDBM_MySQL_FieldInfo *finfo =
+				CMAlloc(sizeof(CMDBM_MySQL_FieldInfo));
+		memset(finfo, 0x0, sizeof(CMDBM_MySQL_FieldInfo));
+		strncat(finfo->name, f->name, f->name_length);
+		finfo->index = i;
+		switch(f->type) {
+		case MYSQL_TYPE_BIT:
+			// treat as boolean
+			finfo->fassign = CMDBM_MySQL_ResultAssignBoolean;
+			b->buffer_type = MYSQL_TYPE_LONGLONG;
+			b->buffer = &finfo->longVal;
+            finfo->jtype = CMJsonValueBoolean;
+			break;
+
+		case MYSQL_TYPE_TINY:
+		case MYSQL_TYPE_SHORT:
+		case MYSQL_TYPE_LONG:
+		case MYSQL_TYPE_TIMESTAMP:
+		case MYSQL_TYPE_LONGLONG:
+		case MYSQL_TYPE_INT24:
+		case MYSQL_TYPE_ENUM:
+			// treat as long
+			finfo->fassign = CMDBM_MySQL_ResultAssignLong;
+			b->buffer_type = MYSQL_TYPE_LONGLONG;
+			b->buffer = &finfo->longVal;
+            finfo->jtype = CMJsonValueLong;
+			break;
+
+		case MYSQL_TYPE_FLOAT:
+		case MYSQL_TYPE_DOUBLE:
+		case MYSQL_TYPE_DECIMAL:
+		case MYSQL_TYPE_NEWDECIMAL:
+			// treat as double
+			finfo->fassign = CMDBM_MySQL_ResultAssignDouble;
+			b->buffer_type = MYSQL_TYPE_DOUBLE;
+			b->buffer = &finfo->doubleVal;
+            finfo->jtype = CMJsonValueDouble;
+			break;
+
+		default:
+			// treat as string
+			finfo->fassign = CMDBM_MySQL_ResultAssignString;
+			b->buffer_type = MYSQL_TYPE_STRING;
+            b->buffer = NULL;
+            b->buffer_length = 0;
+            finfo->jtype = CMJsonValueString;
+			break;
+		}
+		b->length = &(finfo->length);
+		b->is_null = &(finfo->isnull);
+		b->error = &(finfo->error);
+        finfo->bind = b;
+		finfo->sess = sess;
+        CMCall(fields, Add, finfo, NULL);
+	}
+	if (mysql_stmt_bind_result(stmt, resbuf) != 0) {
+		MYSQL_LOGERROR(sess, "cannot bind result buffers.");
+		// the caller still owns 'fields', whose entries point into the
+		// array about to go away. no result buffer has been allocated yet
+		// at this point, so cutting the link is enough.
+		for (i=0; i<fieldcnt; i++) {
+			CMDBM_MySQL_FieldInfo *finfo =
+					(CMDBM_MySQL_FieldInfo*)CMCall(fields, GetAt, (uint32_t)i);
+			finfo->bind = NULL;
+		}
+		CMFree(resbuf);
+		return NULL;
+	}
+	return resbuf;
+}
+
 CMDBM_STATIC MYSQL_STMT *CMDBM_MySQL_SelectBase(
 		CMDBM_MySQLSession *sess, CMUTIL_String *query, CMUTIL_JsonArray *binds,
 		CMUTIL_JsonObject *outs, CMUTIL_Array *fields, MYSQL_RES **meta,
 		MYSQL_BIND **resbuf, uint32_t fetchsize)
 {
-	MYSQL_STMT *stmt = CMDBM_MySQL_ExecuteBase(
-				sess, query, binds, outs, fetchsize);
+	MYSQL_STMT *stmt = NULL;
+
+	// the OUT parameters of a procedure arrive as a result set of their
+	// own, which a select would take for its rows: only a statement run
+	// through Execute reads them back.
+	if (outs) {
+		CMUTIL_StringArray *keys = CMCall(outs, GetKeys);
+		if (CMCall(keys, GetSize) > 0)
+			CMLogWarn("a select statement cannot read OUT parameters back "
+					  "on MySQL/MariaDB. run the 'CALL procedure(...)' as "
+					  "an insert, update or delete statement instead.");
+		CMCall(keys, Destroy);
+	}
+
+	stmt = CMDBM_MySQL_ExecuteBase(sess, query, binds, fetchsize);
 	if (stmt) {
-		int i, fieldcnt;
-		MYSQL_FIELD *ofields = NULL;
         CMBool succ = CMFalse;
 
 		// buffering the whole result set would defeat the cursor.
@@ -508,72 +552,9 @@ CMDBM_STATIC MYSQL_STMT *CMDBM_MySQL_SelectBase(
 			goto FAILEDPOINT;
 		}
 
-        fieldcnt = (int)mysql_num_fields(*meta);
-		ofields = mysql_fetch_fields(*meta);
-        *resbuf = CMAlloc(sizeof(MYSQL_BIND) * (uint64_t)fieldcnt);
-        memset(*resbuf, 0x0, sizeof(MYSQL_BIND) * (uint64_t)fieldcnt);
-		for (i=0; i<fieldcnt; i++) {
-			MYSQL_FIELD *f = &ofields[i];
-			MYSQL_BIND *b = &((*resbuf)[i]);
-			CMDBM_MySQL_FieldInfo *finfo =
-					CMAlloc(sizeof(CMDBM_MySQL_FieldInfo));
-			memset(finfo, 0x0, sizeof(CMDBM_MySQL_FieldInfo));
-			strncat(finfo->name, f->name, f->name_length);
-			finfo->index = i;
-			switch(f->type) {
-			case MYSQL_TYPE_BIT:
-				// treat as boolean
-				finfo->fassign = CMDBM_MySQL_ResultAssignBoolean;
-				b->buffer_type = MYSQL_TYPE_LONGLONG;
-				b->buffer = &finfo->longVal;
-                finfo->jtype = CMJsonValueBoolean;
-				break;
-
-			case MYSQL_TYPE_TINY:
-			case MYSQL_TYPE_SHORT:
-			case MYSQL_TYPE_LONG:
-			case MYSQL_TYPE_TIMESTAMP:
-			case MYSQL_TYPE_LONGLONG:
-			case MYSQL_TYPE_INT24:
-			case MYSQL_TYPE_ENUM:
-				// treat as long
-				finfo->fassign = CMDBM_MySQL_ResultAssignLong;
-				b->buffer_type = MYSQL_TYPE_LONGLONG;
-				b->buffer = &finfo->longVal;
-                finfo->jtype = CMJsonValueLong;
-				break;
-
-			case MYSQL_TYPE_FLOAT:
-			case MYSQL_TYPE_DOUBLE:
-			case MYSQL_TYPE_DECIMAL:
-			case MYSQL_TYPE_NEWDECIMAL:
-				// treat as double
-				finfo->fassign = CMDBM_MySQL_ResultAssignDouble;
-				b->buffer_type = MYSQL_TYPE_DOUBLE;
-				b->buffer = &finfo->doubleVal;
-                finfo->jtype = CMJsonValueDouble;
-				break;
-
-			default:
-				// treat as string
-				finfo->fassign = CMDBM_MySQL_ResultAssignString;
-				b->buffer_type = MYSQL_TYPE_STRING;
-                b->buffer = NULL;
-                b->buffer_length = 0;
-                finfo->jtype = CMJsonValueString;
-				break;
-			}
-			b->length = &(finfo->length);
-			b->is_null = &(finfo->isnull);
-			b->error = &(finfo->error);
-            finfo->bind = b;
-			finfo->sess = sess;
-            CMCall(fields, Add, finfo, NULL);
-		}
-		if (mysql_stmt_bind_result(stmt, *resbuf) != 0) {
-			MYSQL_LOGERROR(sess, "cannot bind result buffers.");
+		*resbuf = CMDBM_MySQL_BindResult(sess, stmt, *meta, fields);
+		if (*resbuf == NULL)
 			goto FAILEDPOINT;
-		}
 
         succ = CMTrue;
 FAILEDPOINT:
@@ -605,10 +586,171 @@ CMDBM_STATIC void CMDBM_MySQL_FieldDestroy(void *data)
 {
 	CMDBM_MySQL_FieldInfo *finfo = (CMDBM_MySQL_FieldInfo*)data;
 	if (finfo) {
-        if (finfo->jtype == CMJsonValueString && finfo->bind->buffer)
+        if (finfo->jtype == CMJsonValueString &&
+                finfo->bind && finfo->bind->buffer)
             CMFree(finfo->bind->buffer);
 		CMFree(finfo);
 	}
+}
+
+// the flag the server raises on the result set which carries the OUT
+// parameters. defined by every client library since MySQL 5.5.
+#ifndef SERVER_PS_OUT_PARAMS
+#define SERVER_PS_OUT_PARAMS 4096
+#endif
+
+// an OUT parameter of the statement, and the bind index it sits at.
+typedef struct CMDBM_MySQL_OutRef {
+	CMUTIL_JsonValue	*value;
+	int64_t				index;
+} CMDBM_MySQL_OutRef;
+
+// collects the OUT parameters ordered by their bind index. the keys of
+// 'outs' are decimal spellings, so they cannot simply be sorted as text.
+CMDBM_STATIC CMDBM_MySQL_OutRef *CMDBM_MySQL_SortOutRefs(
+		CMUTIL_JsonObject *outs, CMUTIL_StringArray *keys, uint32_t count)
+{
+	uint32_t i;
+	CMDBM_MySQL_OutRef *res =
+			CMAlloc(sizeof(CMDBM_MySQL_OutRef) * (size_t)count);
+	for (i=0; i<count; i++) {
+		const char *cidx = CMCall(keys, GetCString, i);
+		CMUTIL_Json *item = CMCall(outs, Get, cidx);
+		int64_t idx = (int64_t)strtoll(cidx, NULL, 10);
+		uint32_t j = i;
+		// insertion sort: a statement has a handful of OUT parameters.
+		while (j > 0 && res[j-1].index > idx) {
+			res[j] = res[j-1];
+			j--;
+		}
+		res[j].index = idx;
+		res[j].value = (CMUTIL_JsonValue*)item;
+	}
+	return res;
+}
+
+CMDBM_STATIC void CMDBM_MySQL_CopyValue(
+		CMUTIL_JsonValue *dst, CMUTIL_JsonValue *src)
+{
+	CMJsonValueType vtype = CMCall(src, GetValueType);
+	switch (vtype) {
+	case CMJsonValueLong: {
+		int64_t lval = CMCall(src, GetLong);
+		CMCall(dst, SetLong, lval);
+		break;
+	}
+	case CMJsonValueDouble: {
+		double dval = CMCall(src, GetDouble);
+		CMCall(dst, SetDouble, dval);
+		break;
+	}
+	case CMJsonValueBoolean: {
+		CMBool bval = CMCall(src, GetBoolean);
+		CMCall(dst, SetBoolean, bval);
+		break;
+	}
+	case CMJsonValueString: {
+		const char *sval = CMCall(src, GetCString);
+		CMCall(dst, SetString, sval);
+		break;
+	}
+	default:
+		CMCall(dst, SetNull);
+		break;
+	}
+}
+
+// reads the single row of the result set the statement stands on into the
+// OUT parameters, column by column.
+CMDBM_STATIC void CMDBM_MySQL_AssignOutRow(
+		CMDBM_MySQLSession *sess, MYSQL_STMT *stmt, MYSQL_RES *meta,
+		CMDBM_MySQL_OutRef *refs, uint32_t count)
+{
+	CMUTIL_Array *fields = CMUTIL_ArrayCreateEx(
+				10, NULL, CMDBM_MySQL_FieldDestroy);
+	MYSQL_BIND *resb = CMDBM_MySQL_BindResult(sess, stmt, meta, fields);
+	if (resb) {
+		int frv = mysql_stmt_fetch(stmt);
+		if (frv == 0 || frv == MYSQL_DATA_TRUNCATED) {
+			uint32_t i, nfields = (uint32_t)CMCall(fields, GetSize);
+			CMUTIL_JsonObject *row = CMUTIL_JsonObjectCreate();
+			CMUTIL_MySQL_RowSetFields(fields, stmt, row);
+			if (nfields != count)
+				CMLogWarn("the statement declares %u OUT parameter(s) while "
+						  "the procedure returned %u. the first %u are read "
+						  "back.", count, nfields,
+						  nfields < count? nfields:count);
+			if (nfields > count) nfields = count;
+			for (i=0; i<nfields; i++) {
+				CMDBM_MySQL_FieldInfo *finfo =
+						(CMDBM_MySQL_FieldInfo*)CMCall(fields, GetAt, i);
+				CMUTIL_Json *item = CMCall(row, Get, finfo->name);
+				if (item)
+					CMDBM_MySQL_CopyValue(
+								refs[i].value, (CMUTIL_JsonValue*)item);
+			}
+			CMUTIL_JsonDestroy(row);
+		} else {
+			MYSQL_LOGERROR(sess, "cannot fetch the OUT parameter row.");
+		}
+	}
+	// the field descriptions point into the bind array, so they have to go
+	// first: destroying them releases the buffers those binds hold.
+	CMCall(fields, Destroy);
+	if (resb) CMFree(resb);
+}
+
+// MySQL and MariaDB do not write an OUT parameter back into the buffer it
+// was bound from. The server sends the values of the OUT and INOUT
+// parameters of a procedure as an extra result set instead - flagged
+// SERVER_PS_OUT_PARAMS, one column per parameter in declaration order,
+// after whatever result sets the body of the procedure produced. The bind
+// indices of the OUT parameters ascend in that same order, so the columns
+// of that result set map onto them one by one.
+CMDBM_STATIC void CMDBM_MySQL_ReadOutParams(
+		CMDBM_MySQLSession *sess, MYSQL_STMT *stmt, CMUTIL_JsonObject *outs)
+{
+	CMUTIL_StringArray *keys = NULL;
+	CMDBM_MySQL_OutRef *refs = NULL;
+	CMBool found = CMFalse;
+	uint32_t count;
+	int nrv;
+
+	if (outs == NULL) return;
+	keys = CMCall(outs, GetKeys);
+	count = (uint32_t)CMCall(keys, GetSize);
+	if (count == 0) {
+		CMCall(keys, Destroy);
+		return;
+	}
+	refs = CMDBM_MySQL_SortOutRefs(outs, keys, count);
+
+	do {
+		MYSQL_RES *meta = mysql_stmt_result_metadata(stmt);
+		if (meta) {
+			if (!found &&
+					(sess->conn->server_status & SERVER_PS_OUT_PARAMS)) {
+				CMDBM_MySQL_AssignOutRow(sess, stmt, meta, refs, count);
+				found = CMTrue;
+			}
+			mysql_free_result(meta);
+		}
+		// every result set must be consumed before the connection is idle
+		// again, whether it held the OUT parameters or not.
+		mysql_stmt_free_result(stmt);
+		nrv = mysql_stmt_next_result(stmt);
+	} while (nrv == 0);
+
+	if (nrv > 0)
+		MYSQL_LOGERROR(sess, "reading the results of the statement failed.");
+	else if (!found)
+		CMLogWarn("the statement declares %u OUT parameter(s) but the "
+				  "server sent no OUT parameter result set. MySQL and "
+				  "MariaDB return them from 'CALL procedure(...)' only.",
+				  count);
+
+	CMFree(refs);
+	CMCall(keys, Destroy);
 }
 
 CMDBM_STATIC CMUTIL_JsonObject *CMDBM_MySQL_GetRow(
@@ -733,9 +875,14 @@ CMDBM_STATIC int CMDBM_MySQL_Execute(
 		CMUTIL_String *query, CMUTIL_JsonArray *binds, CMUTIL_JsonObject *outs)
 {
 	CMDBM_MySQLSession *sess = (CMDBM_MySQLSession*)connection;
-	MYSQL_STMT *stmt = CMDBM_MySQL_ExecuteBase(sess, query, binds, outs, 0);
+	MYSQL_STMT *stmt = CMDBM_MySQL_ExecuteBase(sess, query, binds, 0);
 	if (stmt) {
-		int res = (int)mysql_stmt_affected_rows(stmt);
+		// a statement whose affected row count is unknown - 'CALL' is the
+		// usual one - reports it as ~0. that must not be handed back as
+		// the -1 which means the execution failed.
+		unsigned long long arows = mysql_stmt_affected_rows(stmt);
+		int res = (arows == ~0ULL)? 0:(int)arows;
+		CMDBM_MySQL_ReadOutParams(sess, stmt, outs);
 		mysql_stmt_close(stmt);
 		return res;
 	}
