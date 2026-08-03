@@ -722,15 +722,42 @@ The bundled modules in [modules/](modules/) are the reference implementations.
 
 ## 10. Logging
 
-Logging goes through libcmutils. Without configuration a default console logger
-is installed; to control it, configure the log system before `CMDBM_Init`:
+Logging goes through libcmutils. Without any configuration a default console
+logger is installed on the first message.
+
+The simplest way to control it needs no code at all: put a `cmutil_log.jsonc`
+in the working directory, or point the `CMUTIL_LOG_CONFIG` environment variable
+at your file. It is read when the first message is logged, so it also covers
+what the library logs while starting up.
+
+Configuring it explicitly is a matter of initialization order. The log system
+lives in libcmutils and needs the memory system that `CMUTIL_Init` sets up, so
+it cannot be configured before that — doing so crashes. `CMDBM_Init` calls
+`CMUTIL_Init` for you:
 
 ```c
-CMUTIL_LogSystem *lsys = CMUTIL_LogSystemConfigureFomJson("cmutil_log.jsonc");
+CMDBM_Init();                                     /* initializes libcmutils */
+CMUTIL_LogSystemConfigureFomJson("mylog.jsonc");  /* installs itself */
 ```
 
-See `libcmutils/samples/cmutil_log.jsonc` for the format. libcmdbm uses these
-logger names:
+`CMUTIL_Init` is reference counted, so an application which wants its
+configuration in place before libcmdbm logs anything may take the first
+reference itself, and give it back at the end:
+
+```c
+CMUTIL_Init(CMMemSystem);
+CMUTIL_LogSystemConfigureFomJson("mylog.jsonc");
+CMDBM_Init();
+    ...
+CMDBM_Clear();
+CMUTIL_Clear();                                   /* the reference above */
+```
+
+Do not hand the returned log system to `CMUTIL_LogSystemSet`: the configuration
+call has already installed it globally, and setting it again destroys it first.
+
+See `libcmutils/samples/cmutil_log.jsonc` for the format — note that a logger
+refers to its appenders with `appenderRef`. libcmdbm uses these logger names:
 
 | Logger | Content |
 |---|---|
