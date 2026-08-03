@@ -1,0 +1,17 @@
+{
+    "databases": [
+        {
+            "type": "SQLite",
+            "id": "local",
+            "file": "sqlite_test.db",
+            "pool": {
+                "initCount": 1,
+                "maxCount": 3,
+                "testSql": "select 1"
+            },
+            "mappers": [
+                { "type": "mapper", "filePath": "data/sqlite_mapper.xml" }
+            ]
+        }
+    ]
+}

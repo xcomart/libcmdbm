@@ -1,0 +1,28 @@
+{
+    "databases": [
+        {
+            "type": "MoCk",
+            "id": "local",
+            "charset": "utf-8",
+            "host": "127.0.0.1",
+            "pool": {
+                "confRef": "basePoolConfig"
+            },
+            "mappers": [
+                { "type": "mapper", "filePath": "data/mapper.xml" }
+            ],
+            "params": {
+                "user": "scott"
+            }
+        }
+    ],
+    "poolConfigurations": [
+        {
+            "id": "basePoolConfig",
+            "pingInterval": 30,
+            "initCount": 1,
+            "maxCount": 2,
+            "testSql": "select 1"
+        }
+    ]
+}
