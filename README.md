@@ -753,8 +753,9 @@ CMDBM_Clear();
 CMUTIL_Clear();                                   /* the reference above */
 ```
 
-Do not hand the returned log system to `CMUTIL_LogSystemSet`: the configuration
-call has already installed it globally, and setting it again destroys it first.
+The configuration call installs its result globally, so handing it back to
+`CMUTIL_LogSystemSet` is a no-op — harmless since libcmutils 0.6.4, a crash in
+earlier versions.
 
 See `libcmutils/samples/cmutil_log.jsonc` for the format — note that a logger
 refers to its appenders with `appenderRef`. libcmdbm uses these logger names:
