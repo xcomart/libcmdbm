@@ -66,6 +66,13 @@ CMDBM_STATIC char *CMDBM_PgSQL_GetBindString(
     case CMJsonValueBoolean:
         typestr = "bool";
         break;
+    case CMJsonValueNull:
+        // a NULL carries no type of its own, and casting it to varchar
+        // would have PostgreSQL refuse it for every column which is not
+        // text. left uncast, the server infers the type of the parameter
+        // from where it stands.
+        sprintf(buffer, "$%d", (index+1));
+        return buffer;
     default:
         typestr = "varchar";
         break;
@@ -265,6 +272,112 @@ CMDBM_STATIC CMBool CMDBM_PgSQL_BuildValues(
     return CMTrue;
 }
 
+// writes one field of a result row into a JSON value, converting it from
+// its text representation according to the type the server reports.
+CMDBM_STATIC void CMDBM_PgSQL_SetValue(
+        PGresult *pres, int rowidx, int col, CMUTIL_JsonValue *jval)
+{
+    const char *val;
+    if (PQgetisnull(pres, rowidx, col)) {
+        CMCall(jval, SetNull);
+        return;
+    }
+    val = PQgetvalue(pres, rowidx, col);
+    switch (PQftype(pres, col)) {
+    case CMDBM_PGSQL_BOOLOID:
+        CMCall(jval, SetBoolean, (*val == 't')? CMTrue:CMFalse);
+        break;
+    case CMDBM_PGSQL_INT2OID:
+    case CMDBM_PGSQL_INT4OID:
+    case CMDBM_PGSQL_INT8OID:
+    case CMDBM_PGSQL_OIDOID:
+        CMCall(jval, SetLong, (int64_t)strtoll(val, NULL, 10));
+        break;
+    case CMDBM_PGSQL_FLOAT4OID:
+    case CMDBM_PGSQL_FLOAT8OID:
+    case CMDBM_PGSQL_NUMERICOID:
+        CMCall(jval, SetDouble, strtod(val, NULL));
+        break;
+    default:
+        CMCall(jval, SetString, val);
+        break;
+    }
+}
+
+// an OUT parameter of the statement, and the bind index it sits at.
+typedef struct CMDBM_PgSQL_OutRef {
+    CMUTIL_JsonValue    *value;
+    int64_t             index;
+} CMDBM_PgSQL_OutRef;
+
+// collects the OUT parameters ordered by their bind index. the keys of
+// 'outs' are decimal spellings, so they cannot simply be sorted as text.
+CMDBM_STATIC CMDBM_PgSQL_OutRef *CMDBM_PgSQL_SortOutRefs(
+        CMUTIL_JsonObject *outs, CMUTIL_StringArray *keys, uint32_t count)
+{
+    uint32_t i;
+    CMDBM_PgSQL_OutRef *res =
+            CMAlloc(sizeof(CMDBM_PgSQL_OutRef) * (size_t)count);
+    for (i=0; i<count; i++) {
+        const char *cidx = CMCall(keys, GetCString, i);
+        CMUTIL_Json *item = CMCall(outs, Get, cidx);
+        int64_t idx = (int64_t)strtoll(cidx, NULL, 10);
+        uint32_t j = i;
+        // insertion sort: a statement has a handful of OUT parameters.
+        while (j > 0 && res[j-1].index > idx) {
+            res[j] = res[j-1];
+            j--;
+        }
+        res[j].index = idx;
+        res[j].value = (CMUTIL_JsonValue*)item;
+    }
+    return res;
+}
+
+// PostgreSQL cannot bind an OUT parameter. 'CALL procedure(...)' hands the
+// values of the OUT and INOUT parameters back as one result row instead,
+// with one column per parameter in declaration order - and the bind indices
+// of the OUT parameters of the statement ascend in that same order, so the
+// columns of that row map onto them one by one.
+CMDBM_STATIC void CMDBM_PgSQL_SetOutParams(
+        PGresult *pres, CMUTIL_JsonObject *outs)
+{
+    uint32_t i, count, mapped;
+    int nfields;
+    CMDBM_PgSQL_OutRef *refs;
+    CMUTIL_StringArray *keys;
+
+    if (outs == NULL) return;
+    keys = CMCall(outs, GetKeys);
+    count = (uint32_t)CMCall(keys, GetSize);
+    if (count == 0) {
+        CMCall(keys, Destroy);
+        return;
+    }
+
+    if (PQresultStatus(pres) != PGRES_TUPLES_OK || PQntuples(pres) < 1) {
+        CMLogWarn("the statement declares %u OUT parameter(s) but returned "
+                  "no row to read them from. PostgreSQL has no OUT binding: "
+                  "the values come back as the result row of "
+                  "'CALL procedure(...)'.", count);
+        CMCall(keys, Destroy);
+        return;
+    }
+
+    nfields = PQnfields(pres);
+    mapped = ((uint32_t)nfields < count)? (uint32_t)nfields : count;
+    if ((uint32_t)nfields != count)
+        CMLogWarn("the statement declares %u OUT parameter(s) while its "
+                  "result row has %d column(s). the first %u are read back.",
+                  count, nfields, mapped);
+
+    refs = CMDBM_PgSQL_SortOutRefs(outs, keys, count);
+    for (i=0; i<mapped; i++)
+        CMDBM_PgSQL_SetValue(pres, 0, (int)i, refs[i].value);
+    CMFree(refs);
+    CMCall(keys, Destroy);
+}
+
 CMDBM_STATIC PGresult *CMDBM_PgSQL_ExecuteBase(
         CMDBM_PgSQLConn *sess, CMUTIL_String *query,
         CMUTIL_JsonArray *binds, CMUTIL_JsonObject *outs)
@@ -273,9 +386,6 @@ CMDBM_STATIC PGresult *CMDBM_PgSQL_ExecuteBase(
     ExecStatusType status;
     int nparams = 0;
     const char **values = NULL;
-    // PostgreSQL has no out-binding: procedure results come back
-    // as an ordinary result set.
-    CMUTIL_UNUSED(outs);
 
     if (!CMDBM_PgSQL_BuildValues(binds, &values, &nparams))
         return NULL;
@@ -287,8 +397,9 @@ CMDBM_STATIC PGresult *CMDBM_PgSQL_ExecuteBase(
     if (status != PGRES_TUPLES_OK && status != PGRES_COMMAND_OK) {
         CMLogError("query execution failed: %s", PQerrorMessage(sess->conn));
         PQclear(pres);
-        pres = NULL;
+        return NULL;
     }
+    CMDBM_PgSQL_SetOutParams(pres, outs);
     return pres;
 }
 
@@ -298,31 +409,10 @@ CMDBM_STATIC void CMDBM_PgSQL_FetchRow(
     int i, nfields = PQnfields(pres);
     for (i=0; i<nfields; i++) {
         const char *name = PQfname(pres, i);
-        if (PQgetisnull(pres, rowidx, i)) {
-            CMCall(row, PutNull, name);
-        } else {
-            const char *val = PQgetvalue(pres, rowidx, i);
-            switch (PQftype(pres, i)) {
-            case CMDBM_PGSQL_BOOLOID:
-                CMCall(row, PutBoolean, name,
-                       (*val == 't')? CMTrue:CMFalse);
-                break;
-            case CMDBM_PGSQL_INT2OID:
-            case CMDBM_PGSQL_INT4OID:
-            case CMDBM_PGSQL_INT8OID:
-            case CMDBM_PGSQL_OIDOID:
-                CMCall(row, PutLong, name, (int64_t)strtoll(val, NULL, 10));
-                break;
-            case CMDBM_PGSQL_FLOAT4OID:
-            case CMDBM_PGSQL_FLOAT8OID:
-            case CMDBM_PGSQL_NUMERICOID:
-                CMCall(row, PutDouble, name, strtod(val, NULL));
-                break;
-            default:
-                CMCall(row, PutString, name, val);
-                break;
-            }
-        }
+        CMUTIL_Json *item;
+        CMCall(row, PutNull, name);
+        item = CMCall(row, Get, name);
+        CMDBM_PgSQL_SetValue(pres, rowidx, i, (CMUTIL_JsonValue*)item);
     }
 }
 

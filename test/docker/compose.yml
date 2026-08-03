@@ -1,0 +1,41 @@
+# Database servers for the integration tests of the client/server modules.
+#
+#   docker compose -f test/docker/compose.yml up -d
+#   ctest --test-dir build -R cmdbm_ --output-on-failure
+#   docker compose -f test/docker/compose.yml down -v
+#
+# The ports are shifted by 10000 so that a locally installed server is not
+# in the way. test/docker/env.sh exports the matching CMDBM_*_* variables;
+# an integration test skips itself when its variables are not set.
+
+services:
+  mariadb:
+    image: mariadb:11
+    container_name: cmdbm_mariadb
+    environment:
+      MARIADB_ROOT_PASSWORD: cmdbm
+      MARIADB_DATABASE: cmdbmtest
+      MARIADB_USER: cmdbm
+      MARIADB_PASSWORD: cmdbm
+    ports:
+      - "13306:3306"
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 3s
+      timeout: 5s
+      retries: 30
+
+  postgres:
+    image: postgres:17
+    container_name: cmdbm_postgres
+    environment:
+      POSTGRES_DB: cmdbmtest
+      POSTGRES_USER: cmdbm
+      POSTGRES_PASSWORD: cmdbm
+    ports:
+      - "15432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cmdbm -d cmdbmtest"]
+      interval: 3s
+      timeout: 5s
+      retries: 30

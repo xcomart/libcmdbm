@@ -31,6 +31,7 @@ MESSAGE( "building for ${CMAKE_SYSTEM_NAME}...")
 
 SET ( LIB_SRCS
     src/base.c
+    src/confxml.c
     src/connection.c
     src/context.c
     src/database.c

@@ -670,8 +670,11 @@ CMDBM_STATIC CMBool CMDBM_MapperRebuildText(
             CMUTIL_StringArray *subs = CMUTIL_StringSplit(buf, ",");
             if (CMCall(subs, GetSize) > 1) {
                 for (i=1; i<CMCall(subs, GetSize); i++) {
+                    // GetAt returns the CMUTIL_String, not its buffer:
+                    // splitting that pointer as text never matched, which
+                    // is why 'mode=out' used to be ignored.
                     CMUTIL_StringArray *nv = CMUTIL_StringSplit(
-                                (char*)CMCall(subs, GetAt, i), "=");
+                                CMCall(subs, GetCString, i), "=");
                     if (CMCall(nv, GetSize) > 1) {
                         const char *n = CMCall(nv, GetCString, 0);
                         const char *v = CMCall(nv, GetCString, 1);

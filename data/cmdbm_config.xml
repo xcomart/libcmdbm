@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE cmdbm SYSTEM "cmdbm_config.dtd">
+<!DOCTYPE Configuration SYSTEM "cmdbm_config.dtd">
+<!-- the XML form of data/cmdbm_config.json. either form may be handed to
+     CMDBM_ContextCreate, the format is decided by the content. -->
 <Configuration>
     <Databases>
         <ODBC id="odbcName" charset="utf-8">
@@ -15,13 +17,15 @@
             <TNSName></TNSName>
             <User></User>
             <Password></Password>
-            <Pool confRef="basePoolConfig" />
+            <Pool confRef="basePoolConfig">
+                <TestSql>select 1 from dual</TestSql>
+            </Pool>
             <Mappers>
                 <MapperSet basePath="" filePattern="" />
             </Mappers>
         </Oracle>
         <MySQL id="mysqlName" charset="utf-8">
-            <Host>localhost</Host>
+            <Host></Host>
             <Port>3306</Port>
             <Database></Database>
             <User></User>
@@ -39,33 +43,32 @@
             </Mappers>
         </SQLite>
         <PgSql id="pgsqlName" charset="utf-8">
-            <Host>localhost</Host>
+            <Host></Host>
             <Port>5432</Port>
             <Database></Database>
             <User></User>
             <Password></Password>
+            <Param key="param1" value="" />
             <Pool confRef="basePoolConfig" />
-            <Mappers>
-                <MapperSet basePath="" filePattern="" />
+            <Mappers monitorInterval="30">
+                <MapperSet basePath="" filePattern="" recursive="false" />
             </Mappers>
         </PgSql>
-		<Custom id="custname">
-			<Param key="key1">value1</Param>
-			<Param key="key2">value2</Param>
-			<Param key="key3">value3</Param>
-		</Custom>
+        <Custom id="custName" charset="utf-8">
+            <Param key="param1">value1</Param>
+        </Custom>
     </Databases>
     <Logging>
         <QueryId show="true" />
         <Query show="true" />
-        <Result show="true" />
+        <Result show="false" />
     </Logging>
     <PoolConfigurations>
-		<PoolConfig id="basePoolConfig" pingInterval="30"
-				pingTest="true" testOnBorrow="true">
+        <PoolConfig id="basePoolConfig" pingInterval="30"
+                pingTest="true" testOnBorrow="true">
             <InitCount>5</InitCount>
             <MaxCount>100</MaxCount>
-            <TestSql>select 1 from dual</TestSql>
+            <TestSql>select 1</TestSql>
         </PoolConfig>
     </PoolConfigurations>
 </Configuration>

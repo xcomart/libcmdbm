@@ -98,6 +98,11 @@
             }
         }
     ],
+    "logging":{
+        "queryId":true,
+        "query":true,
+        "result":false
+    },
     "poolConfigurations":[
         {
             "id":"basePoolConfig",
