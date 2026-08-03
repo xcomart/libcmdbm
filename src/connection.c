@@ -88,12 +88,14 @@ CMDBM_STATIC CMDBM_Cursor *CMDBM_ConnectionOpenCursor(
         CMDBM_Connection *conn,
         CMUTIL_String *query,
         CMUTIL_JsonArray *binds,
-        CMUTIL_JsonObject *outs)
+        CMUTIL_JsonObject *outs,
+        uint32_t fetchsize)
 {
     CMDBM_Connection_Internal *iconn = (CMDBM_Connection_Internal*)conn;
     CMDBM_Cursor_Internal *res;
     void *csr = iconn->modif->OpenCursor(
-                iconn->initres, iconn->connection, query, binds, outs);
+                iconn->initres, iconn->connection, query, binds, outs,
+                fetchsize);
     if (csr == NULL)
         return NULL;
     res = CMAlloc(sizeof(CMDBM_Cursor_Internal));

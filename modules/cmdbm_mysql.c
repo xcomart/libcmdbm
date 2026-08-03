@@ -320,7 +320,8 @@ CMDBM_STATIC void CMDBM_MySQL_SetOutValue(
 
 CMDBM_STATIC MYSQL_STMT *CMDBM_MySQL_ExecuteBase(
 		CMDBM_MySQLSession *sess, CMUTIL_String *query,
-		CMUTIL_JsonArray *binds, CMUTIL_JsonObject *outs)
+		CMUTIL_JsonArray *binds, CMUTIL_JsonObject *outs,
+		uint32_t fetchsize)
 {
     uint32_t i;
     size_t bsize = 0;
@@ -347,6 +348,20 @@ CMDBM_STATIC MYSQL_STMT *CMDBM_MySQL_ExecuteBase(
 		MYSQL_LOGERROR(sess, "prepare statement failed.");
 		goto FAILEDPOINT;
 	}
+
+	// a read only cursor keeps the result set on the server and fetches
+	// it in blocks of 'fetchsize' rows. must be set before execution.
+	if (fetchsize > 0) {
+		unsigned long ctype = (unsigned long)CURSOR_TYPE_READ_ONLY;
+		unsigned long prefetch = (unsigned long)fetchsize;
+		if (mysql_stmt_attr_set(stmt, STMT_ATTR_CURSOR_TYPE, &ctype) ||
+				mysql_stmt_attr_set(
+					stmt, STMT_ATTR_PREFETCH_ROWS, &prefetch)) {
+			MYSQL_LOGERROR(sess, "cannot set fetch size of statement.");
+			goto FAILEDPOINT;
+		}
+	}
+
 	// bind variables.
 	for (i=0; i<bsize; i++) {
 		char ibuf[20];
@@ -472,15 +487,17 @@ CMDBM_STATIC void CMDBM_MySQL_ResultAssignBoolean(
 CMDBM_STATIC MYSQL_STMT *CMDBM_MySQL_SelectBase(
 		CMDBM_MySQLSession *sess, CMUTIL_String *query, CMUTIL_JsonArray *binds,
 		CMUTIL_JsonObject *outs, CMUTIL_Array *fields, MYSQL_RES **meta,
-		MYSQL_BIND **resbuf)
+		MYSQL_BIND **resbuf, uint32_t fetchsize)
 {
-	MYSQL_STMT *stmt = CMDBM_MySQL_ExecuteBase(sess, query, binds, outs);
+	MYSQL_STMT *stmt = CMDBM_MySQL_ExecuteBase(
+				sess, query, binds, outs, fetchsize);
 	if (stmt) {
 		int i, fieldcnt;
 		MYSQL_FIELD *ofields = NULL;
         CMBool succ = CMFalse;
 
-		if (mysql_stmt_store_result(stmt) != 0) {
+		// buffering the whole result set would defeat the cursor.
+		if (fetchsize == 0 && mysql_stmt_store_result(stmt) != 0) {
 			MYSQL_LOGERROR(sess, "execute statement failed.");
 			goto FAILEDPOINT;
 		}
@@ -604,7 +621,7 @@ CMDBM_STATIC CMUTIL_JsonObject *CMDBM_MySQL_GetRow(
 	MYSQL_RES *meta = NULL;
 	MYSQL_BIND *resb = NULL;
 	MYSQL_STMT *stmt = CMDBM_MySQL_SelectBase(
-				sess, query, binds, outs, fields, &meta, &resb);
+				sess, query, binds, outs, fields, &meta, &resb, 0);
 	CMUTIL_JsonObject *res = NULL;
     CMBool succ = CMFalse;
 
@@ -673,7 +690,7 @@ CMDBM_STATIC CMUTIL_JsonArray *CMDBM_MySQL_GetList(
 	MYSQL_RES *meta = NULL;
 	MYSQL_BIND *resb = NULL;
 	MYSQL_STMT *stmt = CMDBM_MySQL_SelectBase(
-				sess, query, binds, outs, fields, &meta, &resb);
+				sess, query, binds, outs, fields, &meta, &resb, 0);
 	CMUTIL_JsonArray *res = CMUTIL_JsonArrayCreate();
     CMBool succ = CMFalse;
 
@@ -716,7 +733,7 @@ CMDBM_STATIC int CMDBM_MySQL_Execute(
 		CMUTIL_String *query, CMUTIL_JsonArray *binds, CMUTIL_JsonObject *outs)
 {
 	CMDBM_MySQLSession *sess = (CMDBM_MySQLSession*)connection;
-	MYSQL_STMT *stmt = CMDBM_MySQL_ExecuteBase(sess, query, binds, outs);
+	MYSQL_STMT *stmt = CMDBM_MySQL_ExecuteBase(sess, query, binds, outs, 0);
 	if (stmt) {
 		int res = (int)mysql_stmt_affected_rows(stmt);
 		mysql_stmt_close(stmt);
@@ -736,7 +753,8 @@ typedef struct CMDBM_MySQL_Cursor {
 
 CMDBM_STATIC void *CMDBM_MySQL_OpenCursor(
 		void *initres, void *connection,
-		CMUTIL_String *query, CMUTIL_JsonArray *binds, CMUTIL_JsonObject *outs)
+		CMUTIL_String *query, CMUTIL_JsonArray *binds, CMUTIL_JsonObject *outs,
+		uint32_t fetchsize)
 {
 	CMDBM_MySQLSession *sess = (CMDBM_MySQLSession*)connection;
 	CMUTIL_Array *fields = CMUTIL_ArrayCreateEx(
@@ -744,7 +762,7 @@ CMDBM_STATIC void *CMDBM_MySQL_OpenCursor(
 	MYSQL_RES *meta = NULL;
 	MYSQL_BIND *resb = NULL;
 	MYSQL_STMT *stmt = CMDBM_MySQL_SelectBase(
-				sess, query, binds, outs, fields, &meta, &resb);
+				sess, query, binds, outs, fields, &meta, &resb, fetchsize);
 	if (stmt) {
 		CMDBM_MySQL_Cursor *res = CMAlloc(sizeof(CMDBM_MySQL_Cursor));
 		memset(res, 0x0, sizeof(CMDBM_MySQL_Cursor));
@@ -801,7 +819,10 @@ CMDBM_STATIC void CMDBM_MySQL_LibraryInit()
 
 CMDBM_STATIC void CMDBM_MySQL_LibraryClear()
 {
-	mysql_library_end();
+	// mysql_library_end() is deliberately not called: the client library
+	// is not meant to be initialized again afterwards, while a datasource
+	// may well be created again after the last one has been destroyed.
+	// the library releases its global state at process exit.
 }
 
 CMDBM_ModuleInterface g_cmdbm_mysql_interface = {
