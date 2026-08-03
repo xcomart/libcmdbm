@@ -797,7 +797,7 @@ actually sent to the database.
 
 ## 11. Known issues and limitations
 
-Current state of version 0.1.1 — worth knowing before you file a bug:
+Current state of version 0.1.2 — worth knowing before you file a bug:
 
 * **XML configuration is not implemented.** `data/cmdbm_config.xml` and
   `cmdbm_config.dtd` document the intended shape; only JSON is parsed today.
