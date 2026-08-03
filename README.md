@@ -44,7 +44,7 @@ Developed and maintained by Dennis Soungjin Park &lt;xcomart@gmail.com&gt;.
   `<otherwise>`, `<where>`, `<set>`, `<trim>`, `<foreach>`, `<include>`,
   `<bind>` and `<selectKey>`.
 * **Parameter binding** — `#{name}` becomes a real bind variable in the
-  DBMS-native syntax (`?`, `$1::int8`, `:1`), `${name}` is substituted into the
+  DBMS-native syntax (`?`, `$1::int8`, `?1`, `:1`), `${name}` is substituted into the
   SQL text, `#{name, mode=out}` registers an OUT parameter.
 * **JSON in, JSON out** — parameters are a `CMUTIL_JsonObject`, result rows come
   back as `CMUTIL_JsonObject` / `CMUTIL_JsonArray` with column types mapped to
@@ -393,8 +393,7 @@ needs an `id` that does **not** contain a dot. The full query id is
 
 | Syntax | Meaning |
 |---|---|
-| `#{name}` | bind variable — emits the DBMS-native placeholder (`?` for MySQL/MariaDB/ODBC, `$n::type` for PostgreSQL, `?n` for SQLite, `:n`
-for Oracle) and appends `params["name"]` to the bind list |
+| `#{name}` | bind variable — emits the DBMS-native placeholder (`?` for MySQL/MariaDB/ODBC, `$n::type` for PostgreSQL, `?n` for SQLite, `:n` for Oracle) and appends `params["name"]` to the bind list |
 | `#{name, mode=out}` | OUT parameter — bound as above, and the value produced by the DBMS is written back into `params["name"]` |
 | `${name}` | literal substitution of `params["name"]` into the SQL text; use only for identifiers you control (table names, sort columns) — it is *not* escaped |
 
