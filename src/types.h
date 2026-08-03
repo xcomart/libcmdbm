@@ -45,7 +45,8 @@ struct CMDBM_Connection {
             CMDBM_Connection *conn,
             CMUTIL_String *query,
             CMUTIL_JsonArray *binds,
-            CMUTIL_JsonObject *outs);
+            CMUTIL_JsonObject *outs,
+            uint32_t fetchsize);
     void (*Close)(
             CMDBM_Connection *conn);
     void (*CloseReal)(

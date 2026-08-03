@@ -110,8 +110,10 @@ CMDBM_STATIC void *CMDBM_PgSQL_OpenConnection(
         minsz = CMDBM_PGSQL_MAX_PAIRS;
     }
     for (i=0; i<minsz; i++) {
-        key[i] = CMCall(keys, GetCString, (uint32_t)i);
-        value[i] = CMCall(params, GetCString, key[i]);
+        const char *k = CMCall(keys, GetCString, (uint32_t)i);
+        value[i] = CMCall(params, GetCString, k);
+        // configurations name it 'database', libpq calls it 'dbname'.
+        key[i] = strcasecmp(k, "database") == 0? "dbname":k;
 	}
     key[i] = "client_encoding";
     value[i++] = ires->prcs;
@@ -220,6 +222,49 @@ FAILED:;
 #define CMDBM_PGSQL_FLOAT8OID   701
 #define CMDBM_PGSQL_NUMERICOID  1700
 
+// builds the parameter array of the libpq exec/send functions.
+// '*values' is left NULL when the statement has no bind variable.
+// the returned array holds references of the bind values, the caller
+// releases it with CMFree after the statement has been sent.
+CMDBM_STATIC CMBool CMDBM_PgSQL_BuildValues(
+        CMUTIL_JsonArray *binds, const char ***values, int *nparams)
+{
+    int i, cnt = 0;
+    const char **vals = NULL;
+
+    *values = NULL;
+    *nparams = 0;
+    if (binds) cnt = (int)CMCall(binds, GetSize);
+    if (cnt == 0)
+        return CMTrue;
+
+    vals = CMAlloc(sizeof(char*) * (size_t)cnt);
+    for (i=0; i<cnt; i++) {
+        CMUTIL_Json *json = CMCall(binds, Get, (uint32_t)i);
+        CMUTIL_JsonValue *jval;
+        if (CMCall(json, GetType) != CMJsonTypeValue) {
+            CMLogError("binding variable is not value type JSON.");
+            CMFree(vals);
+            return CMFalse;
+        }
+        jval = (CMUTIL_JsonValue*)json;
+        switch (CMCall(jval, GetValueType)) {
+        case CMJsonValueNull:
+            vals[i] = NULL;
+            break;
+        case CMJsonValueBoolean:
+            vals[i] = CMCall(jval, GetBoolean)? "true":"false";
+            break;
+        default:
+            vals[i] = CMCall(jval, GetCString);
+            break;
+        }
+    }
+    *values = vals;
+    *nparams = cnt;
+    return CMTrue;
+}
+
 CMDBM_STATIC PGresult *CMDBM_PgSQL_ExecuteBase(
         CMDBM_PgSQLConn *sess, CMUTIL_String *query,
         CMUTIL_JsonArray *binds, CMUTIL_JsonObject *outs)
@@ -232,32 +277,8 @@ CMDBM_STATIC PGresult *CMDBM_PgSQL_ExecuteBase(
     // as an ordinary result set.
     CMUTIL_UNUSED(outs);
 
-    if (binds) nparams = (int)CMCall(binds, GetSize);
-    if (nparams > 0) {
-        int i;
-        values = CMAlloc(sizeof(char*) * (size_t)nparams);
-        for (i=0; i<nparams; i++) {
-            CMUTIL_Json *json = CMCall(binds, Get, (uint32_t)i);
-            CMUTIL_JsonValue *jval;
-            if (CMCall(json, GetType) != CMJsonTypeValue) {
-                CMLogError("binding variable is not value type JSON.");
-                CMFree(values);
-                return NULL;
-            }
-            jval = (CMUTIL_JsonValue*)json;
-            switch (CMCall(jval, GetValueType)) {
-            case CMJsonValueNull:
-                values[i] = NULL;
-                break;
-            case CMJsonValueBoolean:
-                values[i] = CMCall(jval, GetBoolean)? "true":"false";
-                break;
-            default:
-                values[i] = CMCall(jval, GetCString);
-                break;
-            }
-        }
-    }
+    if (!CMDBM_PgSQL_BuildValues(binds, &values, &nparams))
+        return NULL;
 
     pres = PQexecParams(sess->conn, CMCall(query, GetCString),
                         nparams, NULL, values, NULL, NULL, 0);
@@ -386,19 +407,72 @@ CMDBM_STATIC int CMDBM_PgSQL_Execute(
 }
 
 typedef struct CMDBM_PgSQL_Cursor {
+    CMDBM_PgSQLConn *sess;
     PGresult    *pres;
     int         ntuples;
     int         currow;
+    CMBool      streaming;
+    CMBool      isend;
 } CMDBM_PgSQL_Cursor;
+
+// a connection which sent a query asynchronously stays busy until every
+// result has been read, so leftovers must be consumed before it is reused.
+CMDBM_STATIC void CMDBM_PgSQL_DrainResults(PGconn *conn)
+{
+    PGresult *pres;
+    while ((pres = PQgetResult(conn)) != NULL)
+        PQclear(pres);
+}
+
+// single row mode: libpq hands out one row at a time instead of building
+// the whole result set in client memory. libpq offers no batch size below
+// PostgreSQL 17, so any positive fetchSize turns streaming on.
+CMDBM_STATIC void *CMDBM_PgSQL_OpenStreamCursor(
+        CMDBM_PgSQLConn *sess, CMUTIL_String *query, CMUTIL_JsonArray *binds)
+{
+    CMDBM_PgSQL_Cursor *res = NULL;
+    const char **values = NULL;
+    int nparams = 0, sent;
+
+    if (!CMDBM_PgSQL_BuildValues(binds, &values, &nparams))
+        return NULL;
+
+    sent = PQsendQueryParams(sess->conn, CMCall(query, GetCString),
+                             nparams, NULL, values, NULL, NULL, 0);
+    if (values) CMFree(values);
+    if (!sent) {
+        CMLogError("cursor query execution failed: %s",
+                   PQerrorMessage(sess->conn));
+        return NULL;
+    }
+    if (!PQsetSingleRowMode(sess->conn)) {
+        CMLogError("cannot switch to single row mode: %s",
+                   PQerrorMessage(sess->conn));
+        CMDBM_PgSQL_DrainResults(sess->conn);
+        return NULL;
+    }
+
+    res = CMAlloc(sizeof(CMDBM_PgSQL_Cursor));
+    memset(res, 0x0, sizeof(CMDBM_PgSQL_Cursor));
+    res->sess = sess;
+    res->streaming = CMTrue;
+    return res;
+}
 
 CMDBM_STATIC void *CMDBM_PgSQL_OpenCursor(
         void *initres, void *connection,
-        CMUTIL_String *query, CMUTIL_JsonArray *binds, CMUTIL_JsonObject *outs)
+        CMUTIL_String *query, CMUTIL_JsonArray *binds, CMUTIL_JsonObject *outs,
+        uint32_t fetchsize)
 {
     CMDBM_PgSQLConn *sess = (CMDBM_PgSQLConn*)connection;
-    PGresult *pres = CMDBM_PgSQL_ExecuteBase(sess, query, binds, outs);
+    PGresult *pres = NULL;
     CMDBM_PgSQL_Cursor *res = NULL;
     CMUTIL_UNUSED(initres);
+
+    if (fetchsize > 0)
+        return CMDBM_PgSQL_OpenStreamCursor(sess, query, binds);
+
+    pres = CMDBM_PgSQL_ExecuteBase(sess, query, binds, outs);
     if (pres == NULL)
         return NULL;
     if (PQresultStatus(pres) != PGRES_TUPLES_OK) {
@@ -408,6 +482,7 @@ CMDBM_STATIC void *CMDBM_PgSQL_OpenCursor(
     }
     res = CMAlloc(sizeof(CMDBM_PgSQL_Cursor));
     memset(res, 0x0, sizeof(CMDBM_PgSQL_Cursor));
+    res->sess = sess;
     res->pres = pres;
     res->ntuples = PQntuples(pres);
     return res;
@@ -417,15 +492,50 @@ CMDBM_STATIC void CMDBM_PgSQL_CloseCursor(void *cursor)
 {
     CMDBM_PgSQL_Cursor *csr = (CMDBM_PgSQL_Cursor*)cursor;
     if (csr) {
+        // iteration may have been stopped halfway through.
+        if (csr->streaming && !csr->isend)
+            CMDBM_PgSQL_DrainResults(csr->sess->conn);
         if (csr->pres) PQclear(csr->pres);
         CMFree(csr);
+    }
+}
+
+CMDBM_STATIC CMUTIL_JsonObject *CMDBM_PgSQL_CursorNextStream(
+        CMDBM_PgSQL_Cursor *csr)
+{
+    while (CMTrue) {
+        ExecStatusType status;
+        PGresult *pres = PQgetResult(csr->sess->conn);
+        if (pres == NULL) {
+            csr->isend = CMTrue;
+            return NULL;
+        }
+        status = PQresultStatus(pres);
+        if (status == PGRES_SINGLE_TUPLE) {
+            CMUTIL_JsonObject *row = CMUTIL_JsonObjectCreate();
+            CMDBM_PgSQL_FetchRow(pres, 0, row);
+            PQclear(pres);
+            return row;
+        }
+        PQclear(pres);
+        // end of the result set: one more read returns the NULL terminator.
+        if (status == PGRES_TUPLES_OK || status == PGRES_COMMAND_OK)
+            continue;
+        CMLogError("cursor fetch failed: %s", PQerrorMessage(csr->sess->conn));
+        CMDBM_PgSQL_DrainResults(csr->sess->conn);
+        csr->isend = CMTrue;
+        return NULL;
     }
 }
 
 CMDBM_STATIC CMUTIL_JsonObject *CMDBM_PgSQL_CursorNextRow(void *cursor)
 {
     CMDBM_PgSQL_Cursor *csr = (CMDBM_PgSQL_Cursor*)cursor;
-    if (csr && csr->currow < csr->ntuples) {
+    if (csr == NULL)
+        return NULL;
+    if (csr->streaming)
+        return CMDBM_PgSQL_CursorNextStream(csr);
+    if (csr->currow < csr->ntuples) {
         CMUTIL_JsonObject *row = CMUTIL_JsonObjectCreate();
         CMDBM_PgSQL_FetchRow(csr->pres, csr->currow++, row);
         return row;

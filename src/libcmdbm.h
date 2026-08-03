@@ -80,12 +80,18 @@ struct CMDBM_ModuleInterface {
             CMUTIL_String *query,
             CMUTIL_JsonArray *binds,
             CMUTIL_JsonObject *outs);
+    /*
+     * fetchsize is the 'fetchSize' attribute of the executed select tag,
+     * 0 when it is not given. it is a hint: modules which cannot control
+     * the fetch size of their client library may ignore it.
+     */
     void *(*OpenCursor)(
             void *initres,
             void *connection,
             CMUTIL_String *query,
             CMUTIL_JsonArray *binds,
-            CMUTIL_JsonObject *outs);
+            CMUTIL_JsonObject *outs,
+            uint32_t fetchsize);
     void (*CloseCursor)(
             void *cursor);
     CMUTIL_JsonObject *(*CursorNextRow)(

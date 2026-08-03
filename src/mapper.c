@@ -642,10 +642,14 @@ CMDBM_STATIC CMBool CMDBM_MapperRebuildText(
 
         if (s < r) break;
 
-        child = CMUTIL_XmlNodeCreateWithLen(
-                    CMXmlNodeText, r, (uint64_t)(s-r));
-        CMDBM_MapperItemProc(queries, child, CMDBM_NTSqlText);;
-        CMCall(node, AddChild, child);
+        // an empty text segment (a parameter at the very beginning, or
+        // two adjacent parameters) contributes nothing to the query.
+        if (s > r) {
+            child = CMUTIL_XmlNodeCreateWithLen(
+                        CMXmlNodeText, r, (uint64_t)(s-r));
+            CMDBM_MapperItemProc(queries, child, CMDBM_NTSqlText);
+            CMCall(node, AddChild, child);
+        }
         ntype = p && s == p? CMDBM_NTSqlBind:CMDBM_NTSqlReplace;
 
         s += 2;
@@ -699,10 +703,16 @@ CMDBM_STATIC CMBool CMDBM_MapperRebuildText(
     }
 
     p = CMCall(node, GetName);
-    child = CMUTIL_XmlNodeCreateWithLen(
-                CMXmlNodeText, r, strlen(p)-(uint64_t)(r-p));
-    CMDBM_MapperItemProc(queries, child, CMDBM_NTSqlText);
-    CMCall(node, AddChild, child);
+    {
+        // the tail is empty when the text ends with a parameter.
+        size_t taillen = strlen(p) - (size_t)(r - p);
+        if (taillen > 0) {
+            child = CMUTIL_XmlNodeCreateWithLen(
+                        CMXmlNodeText, r, (uint64_t)taillen);
+            CMDBM_MapperItemProc(queries, child, CMDBM_NTSqlText);
+            CMCall(node, AddChild, child);
+        }
+    }
 
     CMCall(node, SetName, "");
 
