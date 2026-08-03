@@ -147,7 +147,8 @@ CMDBM_STATIC CMBool CMDBM_ContextParseMappers(
 CMDBM_STATIC CMBool CMDBM_ContextIsReservedKey(const char *key)
 {
     static const char *reserved[] = {
-        "type", "id", "charset", "pool", "mappers", "params", NULL
+        "type", "id", "charset", "pool", "mappers", "params",
+        "monitorinterval", NULL
     };
     const char **p;
     for (p = reserved; *p; p++)
@@ -173,6 +174,7 @@ CMDBM_STATIC CMBool CMDBM_ContextParseDatabase(
             (CMUTIL_JsonValue*)CMCall(dcfg, Get, "id");
     CMUTIL_JsonValue *charset =
             (CMUTIL_JsonValue*)CMCall(dcfg, Get, "charset");
+    CMUTIL_Json *minterval = CMCall(dcfg, Get, "monitorinterval");
     const char *sid = NULL, *scharset = NULL;
     CMDBM_Database *db = NULL;
     CMDBM_PoolConfig *pconf = NULL;
@@ -283,6 +285,23 @@ CMDBM_STATIC CMBool CMDBM_ContextParseDatabase(
                   "any request on this database will be failed.", sid);
     }
 
+    // how often the mapper files are rescanned. it must be set before the
+    // datasource is added to the context: that is where the reloader task
+    // is scheduled. without it the datasource keeps its default of 30s.
+    if (minterval) {
+        if (CMCall(minterval, GetType) == CMJsonTypeValue) {
+            int64_t ival = CMCall((CMUTIL_JsonValue*)minterval, GetLong);
+            if (ival > 0)
+                CMCall(db, SetMonitor, (int)ival);
+            else
+                CMLogWarn("'monitorInterval' of the datasource(%s) must be "
+                          "positive. the default is kept.", sid);
+        } else {
+            CMLogWarn("'monitorInterval' of the datasource(%s) is not a "
+                      "scalar value. the default is kept.", sid);
+        }
+    }
+
     if (!CMCall(context, AddDatabase, db)) {
         CMLogErrorS("database(%s) cannot be added to context.", sid);
         goto ENDPOINT;
@@ -296,6 +315,64 @@ ENDPOINT:
     if (!res && db)
         CMCall(db, Destroy);
     return res;
+}
+
+// a logging flag accepts a JSON boolean and the strings "true"/"false"
+// as well, so that a configuration converted from the XML form (where every
+// attribute is a string) keeps working.
+CMDBM_STATIC CMBool CMDBM_ContextParseLogFlag(
+        CMUTIL_JsonObject *lcfg, const char *key, CMBool defval)
+{
+    const char *sdef = defval? "true":"false";
+    CMUTIL_Json *item = CMCall(lcfg, Get, key);
+    CMUTIL_JsonValue *jval = NULL;
+    const char *sval = NULL;
+
+    if (item == NULL)
+        return defval;
+    if (CMCall(item, GetType) != CMJsonTypeValue) {
+        CMLogWarn("'logging.%s' is not a scalar value. %s is used.",
+                  key, sdef);
+        return defval;
+    }
+    jval = (CMUTIL_JsonValue*)item;
+    if (CMCall(jval, GetValueType) == CMJsonValueBoolean)
+        return CMCall(jval, GetBoolean);
+    if (CMCall(jval, GetValueType) == CMJsonValueString) {
+        sval = CMCall(jval, GetCString);
+        if (sval) {
+            if (strcasecmp(sval, "true") == 0)
+                return CMTrue;
+            if (strcasecmp(sval, "false") == 0)
+                return CMFalse;
+        }
+    }
+    CMLogWarn("unknown value of 'logging.%s': '%s'. %s is used.",
+              key, sval? sval:"(not a boolean)", sdef);
+    return defval;
+}
+
+// the 'Logging' section is optional: an absent or malformed one leaves the
+// defaults set by CMDBM_ContextInitialize in place, it is not a parse error.
+CMDBM_STATIC void CMDBM_ContextParseLogging(
+        CMDBM_Context_Internal *ictx, CMUTIL_JsonObject *jconf)
+{
+    CMUTIL_JsonObject *lcfg = NULL;
+    CMUTIL_Json *item = CMCall(jconf, Get, "logging");
+
+    if (item == NULL)
+        return;
+    if (CMCall(item, GetType) != CMJsonTypeObject) {
+        CMLogWarn("'Logging' configuration is not an object. ignored.");
+        return;
+    }
+    lcfg = (CMUTIL_JsonObject*)item;
+    ictx->logqueryid = CMDBM_ContextParseLogFlag(
+                lcfg, "queryid", ictx->logqueryid);
+    ictx->logquery = CMDBM_ContextParseLogFlag(
+                lcfg, "query", ictx->logquery);
+    ictx->logresult = CMDBM_ContextParseLogFlag(
+                lcfg, "result", ictx->logresult);
 }
 
 CMDBM_STATIC CMBool CMDBM_ContextParseConfig(
@@ -379,11 +456,54 @@ CMDBM_STATIC CMBool CMDBM_ContextParseConfig(
         ltype = NULL;
     }
 
-    // TODO: load logging config
+    // load logging config
+    CMDBM_ContextParseLogging((CMDBM_Context_Internal*)context, jconf);
+
     res = CMTrue;
 ENDPOINT:
     if (ltype) CMCall(ltype, Destroy);
 
+    return res;
+}
+
+// the format of a configuration file is decided by its content, not by its
+// name: an XML document begins with its declaration or with an element, a
+// JSON document with a brace. the file name of the public API is spelled
+// 'confjson' for compatibility, it takes either form.
+CMDBM_STATIC CMUTIL_Json *CMDBM_ContextLoadConfig(const char *confpath)
+{
+    CMUTIL_Json *res = NULL;
+    CMUTIL_File *cfile = CMUTIL_FileCreate(confpath);
+    CMUTIL_String *content = cfile? CMCall(cfile, GetContents):NULL;
+
+    if (content) {
+        const char *p = CMCall(content, GetCString);
+        while (*p && strchr(CMDBM_SPACES, *p)) p++;
+        if (*p == '<') {
+            CMUTIL_XmlNode *root = CMUTIL_XmlParse(content);
+            if (root) {
+                res = CMDBM_ConfigFromXml(root);
+                CMCall(root, Destroy);
+            }
+            if (res)
+                CMLogDebug("configuration '%s' read as XML.", confpath);
+            else
+                CMLogError("cannot parse '%s' as an XML configuration.",
+                           confpath);
+        } else {
+            res = CMUTIL_JsonParse(content);
+            if (res)
+                CMLogDebug("configuration '%s' read as JSON.", confpath);
+            else
+                CMLogError("cannot parse '%s' as a JSON configuration.",
+                           confpath);
+        }
+    } else {
+        CMLogError("cannot read the configuration file '%s'.", confpath);
+    }
+
+    if (cfile) CMCall(cfile, Destroy);
+    if (content) CMCall(content, Destroy);
     return res;
 }
 
@@ -397,12 +517,20 @@ CMDBM_STATIC CMBool CMDBM_ContextInitialize(
     CMUTIL_Json *conf = NULL;
 
     if (confjson) {
-        CMUTIL_File *cfile = CMUTIL_FileCreate(confjson);
-        CMUTIL_String *content = CMCall(cfile, GetContents);
-        if (content) conf = CMUTIL_JsonParse(content);
-        if (cfile) CMCall(cfile, Destroy);
-        if (content) CMCall(content, Destroy);
+        conf = CMDBM_ContextLoadConfig(confjson);
+        if (conf == NULL) {
+            CMLogError("configuration loading failed.");
+            goto ENDPOINT;
+        }
     }
+
+    // logging defaults. the query id and the statement are logged as they
+    // were before the 'Logging' section existed, the result is opt-in
+    // because it can be arbitrarily large. these hold for a context created
+    // without a configuration file too.
+    ictx->logqueryid = CMTrue;
+    ictx->logquery = CMTrue;
+    ictx->logresult = CMFalse;
 
     if (!progcharset) progcharset = "UTF-8";
     ictx->progcs = CMStrdup(progcharset);
@@ -414,9 +542,10 @@ CMDBM_STATIC CMBool CMDBM_ContextInitialize(
     }
 
     if (conf) {
-        // parse config xml
+        // both configuration formats end up here, the XML one having been
+        // converted into the very same object.
         if (!CMDBM_ContextParseConfig((CMDBM_Context*)ictx, conf)) {
-            CMLogError("configuration loading failed.");
+            CMLogError("configuration parsing failed.");
             goto ENDPOINT;
         }
     }
@@ -488,13 +617,25 @@ CMDBM_STATIC CMDBM_DatabaseEx *CMDBM_ContextGetDatabase(
     return res;
 }
 
+CMDBM_STATIC void CMDBM_ContextGetLogFlags(
+        CMDBM_ContextEx *ctx, CMBool *logqueryid, CMBool *logquery,
+        CMBool *logresult)
+{
+    CMDBM_Context_Internal *ictx = (CMDBM_Context_Internal*)ctx;
+
+    if (logqueryid) *logqueryid = ictx->logqueryid;
+    if (logquery) *logquery = ictx->logquery;
+    if (logresult) *logresult = ictx->logresult;
+}
+
 static CMDBM_ContextEx g_cmdbm_context = {
     {
         CMDBM_ContextAddDatabase,
         CMDBM_ContextGetSession,
         CMDBM_ContextDestroy
     },
-    CMDBM_ContextGetDatabase
+    CMDBM_ContextGetDatabase,
+    CMDBM_ContextGetLogFlags
 };
 
 CMDBM_Context *CMDBM_ContextCreate(

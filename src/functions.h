@@ -52,5 +52,13 @@ CMDBM_Session *CMDBM_SessionCreate(
 CMDBM_ModuleInterface *CMDBM_GetDBMSInterface(
     const char *dbmskey);
 
+/*
+ * Convert an XML configuration tree into the JSON configuration object the
+ * context parser consumes. Returns NULL when the tree is not a
+ * '<Configuration>' document. The caller destroys the result.
+ */
+CMUTIL_Json *CMDBM_ConfigFromXml(
+    CMUTIL_XmlNode *root);
+
 #endif // FUNCTIONS_H__
 

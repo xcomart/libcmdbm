@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE sqlMap SYSTEM "easydbc_sqlmap.dtd">
+<!DOCTYPE sqlMap SYSTEM "cmdbm_sqlmap.dtd">
 <mapper namespace="TestNamespace">
     <sql id="selCols">
         col1, col2
