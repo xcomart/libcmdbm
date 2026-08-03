@@ -303,12 +303,12 @@ and populated programmatically:
 
 ```c
 CMDBM_PoolConfig pool = {
-    30,         /* pingterm     - ping interval, seconds */
-    CMTrue,     /* pingtest                              */
-    CMTrue,     /* testonborrow                          */
+    30,         /* pingterm     - not applied yet        */
+    CMTrue,     /* pingtest     - not applied yet        */
+    CMTrue,     /* testonborrow - not applied yet        */
     2,          /* initcnt                               */
     10,         /* maxcnt                                */
-    "select 1"  /* testsql                               */
+    "select 1"  /* testsql      - not applied yet        */
 };
 CMUTIL_JsonObject *cparm = CMUTIL_JsonObjectCreate();
 CMDBM_Database *db;
@@ -382,10 +382,15 @@ parameters.
 | `confRef` | — | id of an entry in `poolConfigurations` to inherit from |
 | `initCount` | 5 | connections opened at start-up |
 | `maxCount` | 20 (100 in the sample preset) | hard limit of pooled connections |
-| `pingInterval` | 30 | seconds between idle-connection ping tests |
-| `testSql` | `select 1` | query used for the ping/borrow test |
+| `pingInterval` | 30 | seconds between idle-connection ping tests — *parsed, not applied yet* |
+| `testSql` | `select 1` | query for the borrow test — *parsed, not applied yet* |
 
 A checkout waits at most 5 seconds for a free connection before failing.
+
+Only `initCount` and `maxCount` reach the pool today. Every connection is
+validated when it is borrowed, using the test statement of the DBMS module
+(`select 1`, `select 1 from dual` on Oracle) rather than `testSql`, and
+`pingInterval` does not change that.
 
 ### 6.5 Mapper entries
 
@@ -559,6 +564,10 @@ All types are declared in `src/libcmdbm.h`. Methods are invoked with libcmutils'
 `CMCall(obj, Method, args...)` macro, which expands to
 `obj->Method(obj, args...)`. Note that `CMCall` cannot be nested — assign
 intermediate results to local variables.
+
+The section below is the summary; the header carries a doc comment on every
+declaration, and `cmake --build build --target cmdbm_docs` turns those into a
+browsable reference under `doc/html` — see [doc/README.md](doc/README.md).
 
 ### 8.1 Library lifecycle
 
@@ -780,6 +789,9 @@ Current state of version 0.1.1 — worth knowing before you file a bug:
 * **XML configuration is not implemented.** `data/cmdbm_config.xml` and
   `cmdbm_config.dtd` document the intended shape; only JSON is parsed today.
 * **The `Logging` configuration section is not implemented.**
+* **Most pool settings are parsed but not applied.** Only `initCount` and
+  `maxCount` reach the connection pool; `pingInterval`, `testSql` and the
+  matching `CMDBM_PoolConfig` fields have no effect yet — see 6.4.
 * **Oracle OUT parameters** are the only place `#{…, mode=out}` is fully
   meaningful; PostgreSQL has no OUT binding and returns procedure results as an
   ordinary result set.
@@ -791,6 +803,7 @@ src/            core: context, database, session, connection, mapper, sqlbuild
 modules/        DBMS modules: cmdbm_mysql.c, cmdbm_pgsql.c, cmdbm_sqlite.c,
                 cmdbm_oracle.c, cmdbm_odbc.c
 data/           sample configuration, sample sqlmap and DTDs
+doc/            doxygen configuration for the API reference
 test/           test suite, with a mock DBMS module and its mapper/config data
 libcmutils/     git submodule — base utility library (JSON, XML, pool, log, …)
 .github/        CI workflow building and testing on Linux and macOS
