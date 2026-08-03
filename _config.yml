@@ -1,0 +1,19 @@
+theme: jekyll-theme-cayman
+
+title: libcmdbm
+description: MyBatis-like SQL mapping library for C99
+
+# Jekyll copies everything it is not told to skip, which otherwise mirrors
+# the whole source tree onto the site. Only README.md needs rendering; the
+# API reference is generated separately and dropped into /api by the Docs
+# workflow.
+exclude:
+  - src
+  - modules
+  - test
+  - data
+  - doc
+  - libcmutils
+  - build
+  - CMakeLists.txt
+  - VERSION

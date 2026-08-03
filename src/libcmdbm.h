@@ -89,10 +89,11 @@ SOFTWARE.
  *
  * Elsewhere:
  *
+ * @li <a href="https://xcomart.github.io/libcmdbm/">Project page</a> - the
+ *   configuration file and the mapper syntax, neither of which is C API and
+ *   so neither of which appears here, plus the same API in prose.
  * @li <a href="https://github.com/xcomart/libcmdbm">Repository</a> - source,
- *   issues and releases. Its README documents the configuration file and the
- *   mapper syntax, neither of which is C API and so neither of which appears
- *   here.
+ *   issues and releases.
  * @li <a href="https://github.com/xcomart/libcmdbm/tree/master/test">Tests</a>
  *   - runnable code, including a complete DBMS module written for the tests.
  */

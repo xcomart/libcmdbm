@@ -1,5 +1,9 @@
 # API reference
 
+**Published at <https://xcomart.github.io/libcmdbm/api/>**, rebuilt by the
+`Docs` workflow on every push that touches the header, this directory, the
+README or the Jekyll config.
+
 The reference is generated from the doc comments in
 [`src/libcmdbm.h`](../src/libcmdbm.h), which is the whole public API — the
 `.c` files, the DBMS modules and the internal headers are implementation and
