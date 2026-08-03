@@ -72,6 +72,14 @@ CMDBM_STATIC void CMDBM_SessionClose(CMDBM_Session *sess)
 {
     CMDBM_Session_Internal *isess = (CMDBM_Session_Internal*)sess;
     if (isess) {
+        if (isess->istrans) {
+            // a connection must never go back to the pool with an
+            // uncommitted transaction on it.
+            CMLogWarnS("session closed in a transaction. rolling back.");
+            CMDBM_SessionTrans(isess, Rollback);
+            CMDBM_SessionTrans(isess, EndTransaction);
+            isess->istrans = CMFalse;
+        }
         CMDBM_SessionTrans(isess, Close);
         CMCall(isess->conns, Destroy);
         CMFree(isess);
@@ -86,10 +94,18 @@ CMDBM_STATIC CMDBM_Connection *CMDBM_SessionGetConnection(
         CMDBM_DatabaseEx *db = CMCall(isess->ctx, GetDatabase, dbid);
         if (db) {
             conn = CMCall(db, GetConnection);
-            if (conn)
+            if (conn) {
                 CMCall(isess->conns, Put, dbid, conn, NULL);
-            else
+                // connections are borrowed lazily, so a connection acquired
+                // after BeginTransaction must join the running transaction.
+                if (isess->istrans) {
+                    if (!CMCall(conn, BeginTransaction))
+                        CMLogErrorS("cannot start transaction on source '%s'",
+                                    dbid);
+                }
+            } else {
                 CMLogErrorS("cannot get connection from source '%s'", dbid);
+            }
         }
     }
     return conn;
@@ -104,10 +120,90 @@ CMDBM_STATIC void CMDBM_SessionClearBinds(CMUTIL_JsonArray *binds)
         CMCall(binds, Remove, (uint32_t)(size-1));
 }
 
+// attribute of the executed statement tag. attribute names are matched
+// case sensitively by the xml parser, so the lowercased spelling is
+// accepted too.
+CMDBM_STATIC const char *CMDBM_SessionAttribute(
+        CMUTIL_XmlNode *node, const char *aname, const char *alower)
+{
+    CMUTIL_String *sattr = NULL;
+    if (node == NULL)
+        return NULL;
+    sattr = CMCall(node, GetAttribute, aname);
+    if (sattr == NULL)
+        sattr = CMCall(node, GetAttribute, alower);
+    return sattr? CMCall(sattr, GetCString):NULL;
+}
+
+// 'fetchSize' attribute, 0 when it is not given.
+CMDBM_STATIC uint32_t CMDBM_SessionFetchSize(CMUTIL_XmlNode *node)
+{
+    long fsize;
+    const char *sfsize = CMDBM_SessionAttribute(
+                node, "fetchSize", "fetchsize");
+    if (sfsize == NULL)
+        return 0;
+    fsize = strtol(sfsize, NULL, 10);
+    if (fsize <= 0) {
+        CMLogWarnS("invalid fetchSize attribute: '%s'. ignored.", sfsize);
+        return 0;
+    }
+    return (uint32_t)fsize;
+}
+
+// 'resultType' attribute. 'value' reduces each row to its first column.
+CMDBM_STATIC CMBool CMDBM_SessionIsValueResult(CMUTIL_XmlNode *node)
+{
+    const char *rtype = CMDBM_SessionAttribute(
+                node, "resultType", "resulttype");
+    if (rtype == NULL)
+        return CMFalse;
+    if (strcasecmp(rtype, "value") == 0)
+        return CMTrue;
+    if (strcasecmp(rtype, "map") != 0)
+        CMLogWarnS("unknown resultType attribute: '%s'. 'map' is used.", rtype);
+    return CMFalse;
+}
+
+// builds a value list out of a row list, destroying the given row list.
+// each row contributes the value of its first column, null when the row
+// has no column at all.
+CMDBM_STATIC CMUTIL_JsonArray *CMDBM_SessionToValueList(
+        CMUTIL_JsonArray *rows)
+{
+    uint32_t i, size = (uint32_t)CMCall(rows, GetSize);
+    CMUTIL_JsonArray *res = CMUTIL_JsonArrayCreate();
+    for (i=0; i<size; i++) {
+        CMUTIL_Json *item = CMCall(rows, Get, i);
+        CMUTIL_Json *value = NULL;
+        if (CMCall(item, GetType) == CMJsonTypeObject) {
+            CMUTIL_JsonObject *row = (CMUTIL_JsonObject*)item;
+            CMUTIL_StringArray *keys = CMCall(row, GetKeys);
+            if (CMCall(keys, GetSize) > 0) {
+                const char *key = CMCall(keys, GetCString, 0);
+                // detach: the value is owned by the result list from now on.
+                value = CMCall(row, Remove, key);
+            }
+            CMCall(keys, Destroy);
+        }
+        if (value == NULL) {
+            CMUTIL_JsonValue *nval = CMUTIL_JsonValueCreate();
+            CMLogWarnS("row has no column. null is used for value result.");
+            CMCall(nval, SetNull);
+            value = (CMUTIL_Json*)nval;
+        }
+        CMCall(res, Add, value);
+    }
+    // rows are empty objects now, destroying them is safe.
+    CMUTIL_JsonDestroy(rows);
+    return res;
+}
+
 CMDBM_STATIC CMUTIL_String *CMDBM_SessionGetQuery(
         CMDBM_Session *sess, const char *dbid, const char *sqlid,
         CMUTIL_JsonObject *params, CMUTIL_JsonArray **binds,
-        CMUTIL_JsonObject **outs, CMUTIL_List **after, CMUTIL_List **rembuf)
+        CMUTIL_JsonObject **outs, CMUTIL_List **after, CMUTIL_List **rembuf,
+        CMUTIL_XmlNode **qnode)
 {
     CMDBM_Session_Internal *isess = (CMDBM_Session_Internal*)sess;
     CMDBM_DatabaseEx *db = CMCall(isess->ctx, GetDatabase, dbid);
@@ -128,6 +224,9 @@ CMDBM_STATIC CMUTIL_String *CMDBM_SessionGetQuery(
         CMLogErrorS("unknown query id '%s' in datasource %s.", sqlid, dbid);
         goto ENDPOINT;
     }
+    // the node stays valid until the query lock is released by
+    // CMDBM_SessionCleanUp, its attributes may be read until then.
+    *qnode = xqry;
     query = CMUTIL_StringCreate();
     *binds = CMUTIL_JsonArrayCreate();
     *outs = CMUTIL_JsonObjectCreate();
@@ -155,6 +254,7 @@ ENDPOINT:
         *after = NULL;
         *rembuf = NULL;
         *binds = NULL;
+        *qnode = NULL;
         query = NULL;
     }
     if (query)
@@ -224,8 +324,9 @@ CMDBM_STATIC void CMDBM_SessionCleanUp(
     CMUTIL_JsonArray *binds = NULL;\
     CMUTIL_List *after = NULL, *rembuf = NULL;\
     CMUTIL_String *query = NULL;\
-    query = CMDBM_SessionGetQuery(\
-                    sess, dbid, sqlid, params, &binds, &outs, &after, &rembuf);\
+    CMUTIL_XmlNode *qnode = NULL;\
+    query = CMDBM_SessionGetQuery(sess, dbid, sqlid, params, &binds,\
+                    &outs, &after, &rembuf, &qnode);\
     if (query) {\
         res = conn->m(conn, query, binds, outs);\
         if (res != i) {\
@@ -291,8 +392,10 @@ CMDBM_STATIC CMUTIL_JsonArray *CMDBM_SessionGetRowSet(
     CMUTIL_JsonObject *outs = NULL;
     CMUTIL_JsonArray *binds = NULL;
     CMUTIL_List *after = NULL, *rembuf = NULL;
+    CMUTIL_XmlNode *qnode = NULL;
     CMUTIL_String *query = CMDBM_SessionGetQuery(
-                sess, dbid, sqlid, params, &binds, &outs, &after, &rembuf);
+                sess, dbid, sqlid, params, &binds, &outs, &after, &rembuf,
+                &qnode);
     if (query) {
         res = conn->GetList(conn, query, binds, outs);
         if (res != NULL) {
@@ -301,6 +404,9 @@ CMDBM_STATIC CMUTIL_JsonArray *CMDBM_SessionGetRowSet(
                             dbid, sqlid);
                 CMDBM_SessionItemDestroyerJson(res);
                 res = NULL;
+            } else if (CMDBM_SessionIsValueResult(qnode)) {
+                // resultType='value': each row becomes its first column.
+                res = CMDBM_SessionToValueList(res);
             }
         } else {
             CMLogErrorS("%s.%s query execution failed. -> %s",
@@ -322,10 +428,24 @@ CMDBM_STATIC CMBool CMDBM_SessionForEachRow(
     CMUTIL_JsonObject *outs = NULL;
     CMUTIL_JsonArray *binds = NULL;
     CMUTIL_List *after = NULL, *rembuf = NULL;
+    CMUTIL_XmlNode *qnode = NULL;
     CMUTIL_String *query = CMDBM_SessionGetQuery(
-                sess, dbid, sqlid, params, &binds, &outs, &after, &rembuf);
+                sess, dbid, sqlid, params, &binds, &outs, &after, &rembuf,
+                &qnode);
     if (query) {
-        CMDBM_Cursor *csr = conn->OpenCursor(conn, query, binds, outs);
+        uint32_t fetchsize = CMDBM_SessionFetchSize(qnode);
+        CMDBM_Cursor *csr = NULL;
+        if (fetchsize > 0 && CMCall(after, GetSize) > 0) {
+            // a streaming cursor may keep the connection busy, which would
+            // block the selectKey statements running right after it.
+            CMLogWarnS("fetchSize of %s.%s is ignored: the statement has "
+                       "a selectKey to be executed after it.", dbid, sqlid);
+            fetchsize = 0;
+        }
+        if (CMDBM_SessionIsValueResult(qnode))
+            CMLogWarnS("resultType='value' cannot be applied to row "
+                       "iteration of %s.%s. ignored.", dbid, sqlid);
+        csr = conn->OpenCursor(conn, query, binds, outs, fetchsize);
         if (csr != NULL) {
             if (!CMDBM_SessionExecAfters(sess, dbid, params, after, rembuf)) {
                 CMLogErrorS("selectKey part of %s.%s execution failed.",

@@ -509,7 +509,8 @@ CMDBM_STATIC void CMDBM_Oracle_SetOutValue(
 
 CMDBM_STATIC OCIStmt *CMDBM_Oracle_ExecuteBase(
         CMDBM_OracleSession *conn, CMUTIL_String *query,
-        CMUTIL_JsonArray *binds, CMUTIL_JsonObject *outs)
+        CMUTIL_JsonArray *binds, CMUTIL_JsonObject *outs,
+        uint32_t fetchsize)
 {
     uint32_t i;
     size_t bsize = 0;
@@ -529,6 +530,15 @@ CMDBM_STATIC OCIStmt *CMDBM_Oracle_ExecuteBase(
                       (text*)CMCall(query, GetCString),
                       (ub4)CMCall(query, GetSize),
                       OCI_NTV_SYNTAX, OCI_DEFAULT);
+
+    // number of rows OCI fetches in one round trip.
+    // must be set before the statement is executed.
+    if (fetchsize > 0) {
+        ub4 prefetch = (ub4)fetchsize;
+        CMDBM_OracleCheck(conn, status, FAILEDPOINT, OCIAttrSet,
+                          stmt, OCI_HTYPE_STMT, &prefetch, 0,
+                          OCI_ATTR_PREFETCH_ROWS, conn->errhp);
+    }
 
     bsize = CMCall(binds, GetSize);
     buffers = CMAlloc(sizeof(OCIBind*) * bsize);
@@ -612,12 +622,13 @@ FAILEDPOINT:
 CMDBM_STATIC OCIStmt *CMDBM_Oracle_SelectBase(
         CMDBM_OracleSession *conn, CMUTIL_String *query,
         CMUTIL_JsonArray *binds, CMUTIL_JsonObject *outs,
-        CMUTIL_Array *outcols)
+        CMUTIL_Array *outcols, uint32_t fetchsize)
 {
     CMBool succ = CMFalse;
     ub4 j, colcnt;
     sb4 status;
-    OCIStmt *stmt = CMDBM_Oracle_ExecuteBase(conn, query, binds, outs);
+    OCIStmt *stmt = CMDBM_Oracle_ExecuteBase(
+                conn, query, binds, outs, fetchsize);
 
     if (!stmt) goto FAILEDPOINT;
 
@@ -719,7 +730,8 @@ CMDBM_STATIC CMUTIL_JsonObject *CMDBM_Oracle_GetRow(
     CMDBM_OracleSession *conn = (CMDBM_OracleSession*)connection;
     CMUTIL_Array *outcols = CMUTIL_ArrayCreateEx(
                 10, NULL, CMDBM_OracleColumnDestroy);
-    OCIStmt *stmt = CMDBM_Oracle_SelectBase(conn, query, binds, outs, outcols);
+    OCIStmt *stmt = CMDBM_Oracle_SelectBase(
+                conn, query, binds, outs, outcols, 0);
     CMUTIL_JsonObject *res = CMDBM_Oracle_FetchRow(conn, stmt, outcols);
     if (res == NULL)
         CMLogError("cannot fetch row.\n%s", CMCall(query, GetCString));
@@ -759,7 +771,8 @@ CMDBM_STATIC CMUTIL_JsonArray *CMDBM_Oracle_GetList(
     CMDBM_OracleSession *conn = (CMDBM_OracleSession*)connection;
     CMUTIL_Array *outcols = CMUTIL_ArrayCreateEx(
                 10, NULL, CMDBM_OracleColumnDestroy);
-    OCIStmt *stmt = CMDBM_Oracle_SelectBase(conn, query, binds, outs, outcols);
+    OCIStmt *stmt = CMDBM_Oracle_SelectBase(
+                conn, query, binds, outs, outcols, 0);
     CMUTIL_JsonObject *row = NULL;
     CMUTIL_JsonArray *res = CMUTIL_JsonArrayCreate();
 
@@ -779,7 +792,7 @@ CMDBM_STATIC int CMDBM_Oracle_Execute(
     int res = -1;
     sb4 status;
     CMDBM_OracleSession *conn = (CMDBM_OracleSession*)connection;
-    OCIStmt *stmt = CMDBM_Oracle_ExecuteBase(conn, query, binds, outs);
+    OCIStmt *stmt = CMDBM_Oracle_ExecuteBase(conn, query, binds, outs, 0);
 
     if (!stmt) goto FAILEDPOINT;
     CMDBM_OracleCheck(conn, status, FAILEDPOINT, OCIAttrGet,
@@ -802,13 +815,15 @@ typedef struct CMDBM_Oracle_Cursor {
 
 CMDBM_STATIC void *CMDBM_Oracle_OpenCursor(
         void *initres, void *connection,
-        CMUTIL_String *query, CMUTIL_JsonArray *binds, CMUTIL_JsonObject *outs)
+        CMUTIL_String *query, CMUTIL_JsonArray *binds, CMUTIL_JsonObject *outs,
+        uint32_t fetchsize)
 {
     CMDBM_Oracle_Cursor *res = NULL;
     CMDBM_OracleSession *conn = (CMDBM_OracleSession*)connection;
     CMUTIL_Array *outcols = CMUTIL_ArrayCreateEx(
                 10, NULL, CMDBM_OracleColumnDestroy);
-    OCIStmt *stmt = CMDBM_Oracle_SelectBase(conn, query, binds, outs, outcols);
+    OCIStmt *stmt = CMDBM_Oracle_SelectBase(
+                conn, query, binds, outs, outcols, fetchsize);
 
     if (stmt) {
         res = CMAlloc(sizeof(CMDBM_Oracle_Cursor));

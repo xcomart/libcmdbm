@@ -813,12 +813,18 @@ typedef struct CMDBM_ODBC_Cursor {
 
 CMDBM_STATIC void *CMDBM_ODBC_OpenCursor(
         void *initres, void *connection,
-        CMUTIL_String *query, CMUTIL_JsonArray *binds, CMUTIL_JsonObject *outs)
+        CMUTIL_String *query, CMUTIL_JsonArray *binds, CMUTIL_JsonObject *outs,
+        uint32_t fetchsize)
 {
     CMDBM_ODBCSession *sess = (CMDBM_ODBCSession*)connection;
     CMUTIL_Array *fields = CMUTIL_ArrayCreateEx(
                 10, NULL, CMDBM_ODBC_BindFieldDestroy);
     SQLHSTMT stmt = CMDBM_ODBC_SelectBase(sess, query, binds, outs, fields);
+    if (fetchsize > 0) {
+        // block fetching needs array bound columns, result columns of this
+        // module are bound one row at a time.
+        CMLogDebug("fetchSize is not supported by the ODBC module. ignored.");
+    }
     if (stmt) {
         CMDBM_ODBC_Cursor *res = CMAlloc(sizeof(CMDBM_ODBC_Cursor));
         memset(res, 0x0, sizeof(CMDBM_ODBC_Cursor));

@@ -5,9 +5,42 @@ CMUTIL_LogDefine("cmdbm.database")
 
 static CMUTIL_Map *g_cmdbm_dbms_interfaces = NULL;
 
+// one entry per DBMS client library, keyed by the key the module reports
+// through GetDBMSKey. every datasource using the library holds one
+// reference, so the library is set up once no matter how many datasources
+// of the same type - or how many keys the module is registered under -
+// exist at a time.
+typedef struct CMDBM_DBMSLibrary {
+    void        (*libclear)(void);
+    uint32_t    refcnt;
+    int         dummy_padder;
+} CMDBM_DBMSLibrary;
+
+static CMUTIL_Map *g_cmdbm_dbms_libraries = NULL;
+static CMUTIL_Mutex *g_cmdbm_dbms_libmutex = NULL;
+
+// only reached when a datasource outlives CMDBM_Clear.
+CMDBM_STATIC void CMDBM_DatabaseLibraryDestroyer(void *data)
+{
+    CMDBM_DBMSLibrary *lib = (CMDBM_DBMSLibrary*)data;
+    if (lib) {
+        CMLogWarn("DBMS library is still in use while cleaning up. "
+                  "%u datasource(s) have not been destroyed.", lib->refcnt);
+        if (lib->libclear) lib->libclear();
+        CMFree(lib);
+    }
+}
+
 void CMDBM_DatabaseInit()
 {
-    g_cmdbm_dbms_interfaces = CMUTIL_MapCreate();
+    // DBMS keys are case-insensitive: the configuration loader lowercases
+    // the 'type' value, while modules register with uppercase keys.
+    g_cmdbm_dbms_interfaces = CMUTIL_MapCreateEx(
+                CMUTIL_MAP_DEFAULT, CMTrue, NULL, 0.75f);
+    g_cmdbm_dbms_libraries = CMUTIL_MapCreateEx(
+                CMUTIL_MAP_DEFAULT, CMTrue,
+                CMDBM_DatabaseLibraryDestroyer, 0.75f);
+    g_cmdbm_dbms_libmutex = CMUTIL_MutexCreate();
 
 #if defined(CMDBM_ODBC)
     CMCall(g_cmdbm_dbms_interfaces, Put, "ODBC", &g_cmdbm_odbc_interface, NULL);
@@ -35,6 +68,81 @@ void CMDBM_DatabaseClear()
         CMCall(g_cmdbm_dbms_interfaces, Destroy);
         g_cmdbm_dbms_interfaces = NULL;
     }
+    if (g_cmdbm_dbms_libraries) {
+        CMCall(g_cmdbm_dbms_libraries, Destroy);
+        g_cmdbm_dbms_libraries = NULL;
+    }
+    if (g_cmdbm_dbms_libmutex) {
+        CMCall(g_cmdbm_dbms_libmutex, Destroy);
+        g_cmdbm_dbms_libmutex = NULL;
+    }
+}
+
+// key identifying the client library of a module. modules registered under
+// several keys (MARIA and MYSQL share one) report the same key here, so
+// they share one library reference.
+CMDBM_STATIC const char *CMDBM_DatabaseLibraryKey(
+        CMDBM_ModuleInterface *modif)
+{
+    const char *key = NULL;
+    if (modif->GetDBMSKey == NULL) {
+        CMLogWarn("module has no GetDBMSKey. its library initialization "
+                  "cannot be reference counted and is skipped.");
+        return NULL;
+    }
+    key = modif->GetDBMSKey();
+    if (key == NULL)
+        CMLogWarn("module returned no DBMS key. its library initialization "
+                  "cannot be reference counted and is skipped.");
+    return key;
+}
+
+// takes a reference on the client library of the given module,
+// initializing it when this is the first datasource which uses it.
+CMDBM_STATIC void CMDBM_DatabaseLibraryRef(CMDBM_ModuleInterface *modif)
+{
+    CMDBM_DBMSLibrary *lib = NULL;
+    const char *key = CMDBM_DatabaseLibraryKey(modif);
+    if (key == NULL) return;
+
+    CMCall(g_cmdbm_dbms_libmutex, Lock);
+    lib = (CMDBM_DBMSLibrary*)CMCall(g_cmdbm_dbms_libraries, Get, key);
+    if (lib == NULL) {
+        lib = CMAlloc(sizeof(CMDBM_DBMSLibrary));
+        memset(lib, 0x0, sizeof(CMDBM_DBMSLibrary));
+        lib->libclear = modif->LibraryClear;
+        CMCall(g_cmdbm_dbms_libraries, Put, key, lib, NULL);
+        if (modif->LibraryInit) {
+            modif->LibraryInit();
+            CMLogDebug("DBMS library '%s' initialized.", key);
+        }
+    }
+    lib->refcnt++;
+    CMCall(g_cmdbm_dbms_libmutex, Unlock);
+}
+
+// releases the reference taken by CMDBM_DatabaseLibraryRef, cleaning the
+// library up when the last datasource using it is gone.
+CMDBM_STATIC void CMDBM_DatabaseLibraryUnref(CMDBM_ModuleInterface *modif)
+{
+    CMDBM_DBMSLibrary *lib = NULL;
+    const char *key = CMDBM_DatabaseLibraryKey(modif);
+    if (key == NULL) return;
+
+    CMCall(g_cmdbm_dbms_libmutex, Lock);
+    lib = (CMDBM_DBMSLibrary*)CMCall(g_cmdbm_dbms_libraries, Get, key);
+    if (lib == NULL) {
+        CMLogWarn("DBMS library '%s' is not referenced.", key);
+    } else if (--lib->refcnt == 0) {
+        // Remove hands the item over, the destroyer is not called.
+        CMCall(g_cmdbm_dbms_libraries, Remove, key);
+        if (lib->libclear) {
+            lib->libclear();
+            CMLogDebug("DBMS library '%s' cleaned up.", key);
+        }
+        CMFree(lib);
+    }
+    CMCall(g_cmdbm_dbms_libmutex, Unlock);
 }
 
 CMBool CMDBM_RegisterDBMS(const char *dbmskey, CMDBM_ModuleInterface *modif)
@@ -555,7 +663,10 @@ CMDBM_STATIC void CMDBM_DatabaseDestroy(
         if (idb->testqry) CMCall(idb->testqry, Destroy);
         if (idb->poolconf) CMDBM_PoolConfigDestroy(idb->poolconf);
         if (idb->initres) idb->modif->CleanUp(idb->initres);
-        if (idb->modif) CMFree(idb->modif);
+        if (idb->modif) {
+            CMDBM_DatabaseLibraryUnref(idb->modif);
+            CMFree(idb->modif);
+        }
         if (idb->rwlock) CMCall(idb->rwlock, Destroy);
         CMFree(idb);
     }
@@ -610,6 +721,8 @@ CMDBM_Database *CMDBM_DatabaseCreateCustom(
                 64, CMFalse, CMDBM_MapperFileSetDestroy, 0.75f);
     res->modif = CMAlloc(sizeof(CMDBM_ModuleInterface));
     memcpy(res->modif, modif, sizeof(CMDBM_ModuleInterface));
+    // the client library must be ready before the module is initialized.
+    CMDBM_DatabaseLibraryRef(res->modif);
     res->queries = CMUTIL_MapCreate();
     res->poolconf = CMDBM_PoolConfigClone(poolconf);
     res->params = (CMUTIL_JsonObject*)CMCall(&(params->parent), Clone);

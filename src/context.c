@@ -3,19 +3,12 @@
 
 CMUTIL_LogDefine("cmdbm.context")
 
-typedef struct CMDBM_ContextDBLib {
-    void (*libclear)();
-    int initcnt;
-    int dummy_padder;
-} CMDBM_ContextDBLib;
-
 typedef struct CMDBM_Context_Internal {
     CMDBM_ContextEx base;
     CMUTIL_Map      *databases;
     CMUTIL_Timer    *timer;
     char            *progcs;        // program character set
     CMUTIL_Map      *poolconfs;
-    CMUTIL_Map      *libctx;
     CMBool          istimerinternal;
     CMBool          logqueryid;
     CMBool          logquery;
@@ -35,15 +28,6 @@ CMDBM_STATIC void CMDBM_ContextPoolConfDestroyer(void *data)
     if (pconf) {
         if (pconf->testsql) CMFree(pconf->testsql);
         CMFree(pconf);
-    }
-}
-
-CMDBM_STATIC void CMDBM_ContextDBLibDestroyer(void *data)
-{
-    CMDBM_ContextDBLib *plib = (CMDBM_ContextDBLib*)data;
-    if (plib) {
-        plib->libclear();
-        CMFree(plib);
     }
 }
 
@@ -151,6 +135,20 @@ CMDBM_STATIC CMBool CMDBM_ContextParseMappers(
     return res;
 }
 
+// keys of a datasource configuration which describe the datasource itself,
+// not the connection. all configuration keys are lowercased before use.
+CMDBM_STATIC CMBool CMDBM_ContextIsReservedKey(const char *key)
+{
+    static const char *reserved[] = {
+        "type", "id", "charset", "pool", "mappers", "params", NULL
+    };
+    const char **p;
+    for (p = reserved; *p; p++)
+        if (strcmp(*p, key) == 0)
+            return CMTrue;
+    return CMFalse;
+}
+
 CMDBM_STATIC CMBool CMDBM_ContextParseDatabase(
         CMDBM_Context *context,
         const char *sdbtype,
@@ -235,6 +233,11 @@ CMDBM_STATIC CMBool CMDBM_ContextParseDatabase(
         const char *key = CMCall(keys, GetCString, i);
         CMUTIL_Json *item = CMCall(dcfg, Get, key);
         CMJsonType type = CMCall(item, GetType);
+        // datasource meta attributes are not connection parameters.
+        // (modules like PgSQL pass every parameter to the client library,
+        //  which rejects unknown keywords.)
+        if (CMDBM_ContextIsReservedKey(key))
+            continue;
         if (type == CMJsonTypeValue) {
             CMUTIL_Json *nitem = CMCall(item, Clone);
             CMCall(param, Put, key, nitem);
@@ -452,7 +455,6 @@ CMDBM_STATIC void CMDBM_ContextDestroy(CMDBM_Context *ctx)
         if (ictx->databases) CMCall(ictx->databases, Destroy);
         if (ictx->istimerinternal) CMCall(ictx->timer, Destroy);
         if (ictx->poolconfs) CMCall(ictx->poolconfs, Destroy);
-        if (ictx->libctx) CMCall(ictx->libctx, Destroy);
         if (ictx->progcs) CMFree(ictx->progcs);
         CMFree(ictx);
     }
@@ -493,9 +495,6 @@ CMDBM_Context *CMDBM_ContextCreate(
                 32, CMFalse, CMDBM_ContextDatabaseDestroyer, 0.75f);
     res->poolconfs = CMUTIL_MapCreateEx(
                 16, CMFalse, CMDBM_ContextPoolConfDestroyer, 0.75f);
-
-    res->libctx = CMUTIL_MapCreateEx(
-                32, CMFalse, CMDBM_ContextDBLibDestroyer, 0.75f);
 
     if (!CMDBM_ContextInitialize(res, confjson, progcharset, timer)) {
         CMLogError("context initializing failed.");
