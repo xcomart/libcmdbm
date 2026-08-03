@@ -142,6 +142,14 @@ ENDIF ( SUPPORT_ODBC )
 SET_TARGET_PROPERTIES ( cmdbm PROPERTIES VERSION ${LIBCMDBM_VERSION_STRING} )
 SET_TARGET_PROPERTIES ( cmdbmStatic PROPERTIES OUTPUT_NAME cmdbm )
 
+# BUILD_TESTS is shared with the libcmutils submodule. the tests of this
+# project are named cmdbm_*, so 'ctest -R cmdbm_' runs only those.
+IF ( BUILD_TESTS )
+    MESSAGE ( "tests enabled, building test..." )
+    ENABLE_TESTING ()
+    ADD_SUBDIRECTORY ( test )
+ENDIF ()
+
 INSTALL(TARGETS cmdbm cmdbmStatic
   LIBRARY DESTINATION lib
   ARCHIVE DESTINATION lib )

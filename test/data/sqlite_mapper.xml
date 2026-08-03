@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mapper namespace="u">
+    <update id="createTable">
+        create table if not exists t_user (
+            user_id integer primary key autoincrement,
+            name    text not null,
+            age     integer,
+            score   real)
+    </update>
+
+    <insert id="insertUser">
+        <selectKey keyProperty="userId" order="AFTER">
+            select last_insert_rowid()
+        </selectKey>
+        insert into t_user (name, age, score)
+        values (#{name}, #{age}, #{score})
+    </insert>
+
+    <select id="countUsers">
+        select count(*) from t_user
+    </select>
+
+    <select id="selectByName">
+        select user_id, name, age, score from t_user where name = #{name}
+    </select>
+
+    <select id="searchUsers">
+        select user_id, name, age, score from t_user
+        <where>
+            <if test="minAge != null"> and age &gt;= #{minAge} </if>
+            <if test="name != null">   and name = #{name}      </if>
+        </where>
+        order by user_id
+    </select>
+
+    <select id="selectInNames">
+        select user_id, name from t_user
+        where name in
+        <foreach collection="names" item="nm" open="(" close=")" separator=",">
+            #{nm}
+        </foreach>
+    </select>
+
+    <select id="selectNames" resultType="value">
+        select name from t_user order by user_id
+    </select>
+
+    <select id="selectCursor" fetchSize="10">
+        select user_id, name from t_user order by user_id
+    </select>
+</mapper>
