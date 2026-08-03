@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- the XML form of mock_conf.json. it has no DOCTYPE: the tag name of a
+     datasource is its DBMS type, and 'MoCk' is registered by the test
+     itself, so cmdbm_config.dtd cannot know it. -->
+<Configuration>
+    <Databases>
+        <MoCk id="local" charset="utf-8">
+            <Host>127.0.0.1</Host>
+            <Param key="user" value="scott" />
+            <Pool confRef="basePoolConfig" />
+            <Mappers monitorInterval="60">
+                <Mapper file="data/mapper.xml" />
+            </Mappers>
+        </MoCk>
+    </Databases>
+    <Logging>
+        <QueryId show="false" />
+        <Query show="true" />
+        <Result show="true" />
+    </Logging>
+    <PoolConfigurations>
+        <PoolConfig id="basePoolConfig" pingInterval="30">
+            <InitCount>1</InitCount>
+            <MaxCount>2</MaxCount>
+            <TestSql>select 1</TestSql>
+        </PoolConfig>
+    </PoolConfigurations>
+</Configuration>

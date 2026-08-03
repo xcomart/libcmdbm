@@ -199,6 +199,31 @@ CMDBM_STATIC CMUTIL_JsonArray *CMDBM_SessionToValueList(
     return res;
 }
 
+// 'Logging' section, Result flag.
+CMDBM_STATIC CMBool CMDBM_SessionIsLogResult(CMDBM_Session_Internal *isess)
+{
+    CMBool logresult = CMFalse;
+    CMCall(isess->ctx, GetLogFlags, NULL, NULL, &logresult);
+    return logresult;
+}
+
+// result loggers of CMDBM_SessionRun. they must only be called when the
+// Result flag is on, serializing a result is not free.
+CMDBM_STATIC void CMDBM_SessionLogAffected(
+        const char *dbid, const char *sqlid, int cnt)
+{
+    CMLogDebug("%s.%s result - %d row(s) affected.", dbid, sqlid, cnt);
+}
+
+CMDBM_STATIC void CMDBM_SessionLogJson(
+        const char *dbid, const char *sqlid, void *json)
+{
+    CMUTIL_String *buf = CMUTIL_StringCreate();
+    CMCall((CMUTIL_Json*)json, ToString, buf, CMFalse);
+    CMLogDebug("%s.%s result - %s", dbid, sqlid, CMCall(buf, GetCString));
+    CMCall(buf, Destroy);
+}
+
 CMDBM_STATIC CMUTIL_String *CMDBM_SessionGetQuery(
         CMDBM_Session *sess, const char *dbid, const char *sqlid,
         CMUTIL_JsonObject *params, CMUTIL_JsonArray **binds,
@@ -211,6 +236,7 @@ CMDBM_STATIC CMUTIL_String *CMDBM_SessionGetQuery(
     CMUTIL_String *query = NULL;
     CMUTIL_XmlNode *xqry = NULL;
     CMBool succ = CMFalse, locked = CMFalse;
+    CMBool logqueryid = CMFalse, logquery = CMFalse;
     if (!db) {
         CMLogErrorS("unknown datasource id: %s.", dbid);
         goto ENDPOINT;
@@ -257,8 +283,16 @@ ENDPOINT:
         *qnode = NULL;
         query = NULL;
     }
-    if (query)
-        CMLogDebug("%s.%s - %s", dbid, sqlid, CMCall(query, GetCString));
+    if (query) {
+        // 'Logging' section, QueryId and Query flags.
+        CMCall(isess->ctx, GetLogFlags, &logqueryid, &logquery, NULL);
+        if (logqueryid && logquery)
+            CMLogDebug("%s.%s - %s", dbid, sqlid, CMCall(query, GetCString));
+        else if (logqueryid)
+            CMLogDebug("%s.%s", dbid, sqlid);
+        else if (logquery)
+            CMLogDebug("%s", CMCall(query, GetCString));
+    }
     return query;
 }
 
@@ -316,7 +350,8 @@ CMDBM_STATIC void CMDBM_SessionCleanUp(
     if (query) CMCall(query, Destroy);
 }
 
-#define CMDBM_SessionRun(t,i,m,d) do {\
+// 'l' is the result logger, called only when the Result flag is on.
+#define CMDBM_SessionRun(t,i,m,d,l) do {\
     t res = i;\
     CMDBM_Session_Internal *isess = (CMDBM_Session_Internal*)sess;\
     CMDBM_Connection *conn = CMDBM_SessionGetConnection(isess, dbid);\
@@ -335,6 +370,8 @@ CMDBM_STATIC void CMDBM_SessionCleanUp(
                             dbid, sqlid);\
                 d(res);\
                 res = i;\
+            } else if (CMDBM_SessionIsLogResult(isess)) {\
+                l(dbid, sqlid, res);\
             }\
         } else {\
             CMLogErrorS("%s.%s query execution failed. -> %s",\
@@ -359,7 +396,8 @@ CMDBM_STATIC int CMDBM_SessionExecute(
         CMDBM_Session *sess, const char *dbid,
         const char*sqlid, CMUTIL_JsonObject *params)
 {
-    CMDBM_SessionRun(int, -1, Execute, CMDBM_SessionItemDestroyerDummy);
+    CMDBM_SessionRun(int, -1, Execute, CMDBM_SessionItemDestroyerDummy,
+                     CMDBM_SessionLogAffected);
 }
 
 CMDBM_STATIC CMUTIL_JsonValue *CMDBM_SessionGetObject(
@@ -367,7 +405,7 @@ CMDBM_STATIC CMUTIL_JsonValue *CMDBM_SessionGetObject(
         const char *sqlid, CMUTIL_JsonObject *params)
 {
     CMDBM_SessionRun(CMUTIL_JsonValue*, NULL, GetObject,
-                     CMDBM_SessionItemDestroyerJson);
+                     CMDBM_SessionItemDestroyerJson, CMDBM_SessionLogJson);
 }
 
 CMDBM_STATIC CMUTIL_JsonObject *CMDBM_SessionGetRow(
@@ -375,7 +413,7 @@ CMDBM_STATIC CMUTIL_JsonObject *CMDBM_SessionGetRow(
         const char *sqlid, CMUTIL_JsonObject *params)
 {
     CMDBM_SessionRun(CMUTIL_JsonObject*, NULL, GetRow,
-                     CMDBM_SessionItemDestroyerJson);
+                     CMDBM_SessionItemDestroyerJson, CMDBM_SessionLogJson);
 }
 
 CMDBM_STATIC CMUTIL_JsonArray *CMDBM_SessionGetRowSet(
@@ -384,7 +422,7 @@ CMDBM_STATIC CMUTIL_JsonArray *CMDBM_SessionGetRowSet(
 {
     /*
     CMDBM_SessionRun(CMUTIL_JsonArray*, NULL, GetList,
-                     CMDBM_SessionItemDestroyerJson);
+                     CMDBM_SessionItemDestroyerJson, CMDBM_SessionLogJson);
     */
     CMUTIL_JsonArray* res = NULL;
     CMDBM_Session_Internal *isess = (CMDBM_Session_Internal*)sess;
@@ -404,9 +442,13 @@ CMDBM_STATIC CMUTIL_JsonArray *CMDBM_SessionGetRowSet(
                             dbid, sqlid);
                 CMDBM_SessionItemDestroyerJson(res);
                 res = NULL;
-            } else if (CMDBM_SessionIsValueResult(qnode)) {
-                // resultType='value': each row becomes its first column.
-                res = CMDBM_SessionToValueList(res);
+            } else {
+                if (CMDBM_SessionIsValueResult(qnode)) {
+                    // resultType='value': each row becomes its first column.
+                    res = CMDBM_SessionToValueList(res);
+                }
+                if (CMDBM_SessionIsLogResult(isess))
+                    CMDBM_SessionLogJson(dbid, sqlid, res);
             }
         } else {
             CMLogErrorS("%s.%s query execution failed. -> %s",
@@ -454,7 +496,10 @@ CMDBM_STATIC CMBool CMDBM_SessionForEachRow(
                 uint32_t idx = 0;
                 CMUTIL_JsonObject *row = NULL;
                 CMBool cont = CMTrue;
+                CMBool logres = CMDBM_SessionIsLogResult(isess);
                 while (cont && ((row = CMCall(csr, GetNext)) != NULL)) {
+                    if (logres)
+                        CMDBM_SessionLogJson(dbid, sqlid, row);
                     cont = rowcb(row, idx++, udata);
                     CMUTIL_JsonDestroy(row);
                 }

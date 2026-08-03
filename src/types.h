@@ -99,6 +99,13 @@ struct CMDBM_ContextEx {
     CMDBM_DatabaseEx *(*GetDatabase)(
             CMDBM_ContextEx *ctx,
             const char *dbid);
+    // the flags of the 'Logging' configuration section. any of the out
+    // parameters may be NULL when the caller is not interested in it.
+    void (*GetLogFlags)(
+            CMDBM_ContextEx *ctx,
+            CMBool *logqueryid,
+            CMBool *logquery,
+            CMBool *logresult);
 };
 
 #if defined(CMDBM_ODBC)
