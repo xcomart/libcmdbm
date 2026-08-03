@@ -1,0 +1,144 @@
+name: Release
+
+# Pushing a tag creates a git ref, not a GitHub release - the two are
+# separate objects, and the release is what the Releases page and the
+# version badge read. This workflow turns the tag into the release.
+#
+#   git tag -a v0.3.0 <merge commit> -m "..."
+#   git push origin v0.3.0
+#
+# Release notes come from doc/release-notes/<tag>.md when that file exists,
+# so a curated set of notes can be written before the tag is pushed. Without
+# it the notes GitHub generates from the merged pull requests are used.
+
+on:
+  push:
+    tags: [ 'v*' ]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to release, e.g. v0.3.0'
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  # A tag is published to the world, so it is worth a build first. This is
+  # the Ubuntu half of the Build and Test matrix: that workflow runs on
+  # branches and pull requests, not on tags, so nothing else would check
+  # the commit the tag actually points at.
+  verify:
+    name: Verify the tagged commit
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+    steps:
+    - name: Resolve the tag
+      id: tag
+      run: |
+        TAG='${{ github.event.inputs.tag || github.ref_name }}'
+        echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+        echo "releasing $TAG"
+
+    - uses: actions/checkout@v4
+      with:
+        ref: ${{ steps.tag.outputs.tag }}
+        submodules: recursive
+        fetch-depth: 0
+
+    # A tag whose name disagrees with the VERSION file would ship a library
+    # reporting one version under the name of another.
+    - name: Check VERSION against the tag
+      run: |
+        FILE=$(tr -d '[:space:]' < VERSION)
+        TAG='${{ steps.tag.outputs.tag }}'
+        echo "VERSION file: $FILE"
+        echo "tag:          $TAG"
+        if [ "v$FILE" != "$TAG" ]; then
+          echo "::error::VERSION is $FILE, which does not match the tag $TAG"
+          exit 1
+        fi
+
+    - name: Check the tag is on master
+      run: |
+        git fetch --no-tags origin master
+        if ! git merge-base --is-ancestor HEAD origin/master; then
+          echo "::error::the tagged commit is not reachable from master"
+          exit 1
+        fi
+
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y build-essential cmake \
+          zlib1g-dev libssl-dev \
+          libmariadb-dev libpq-dev unixodbc-dev libsqlite3-dev
+
+    - name: Configure
+      run: >
+        cmake -S . -B build
+        -DCMAKE_BUILD_TYPE=RelWithDebInfo
+        -DBUILD_TESTS=ON
+        -DSUPPORT_MARIA=ON
+        -DSUPPORT_PGSQL=ON
+        -DSUPPORT_SQLITE=ON
+        -DSUPPORT_ODBC=ON
+
+    - name: Build
+      run: cmake --build build --config RelWithDebInfo
+
+    # The integration tests of the client/server modules skip themselves
+    # here: no CMDBM_TEST_* variables are set, so no server is expected.
+    - name: Test
+      run: >
+        ctest --test-dir build -C RelWithDebInfo
+        -R cmdbm_ --output-on-failure
+
+    # The version the built library reports, not just the one in the file.
+    - name: Check the built library reports the tagged version
+      run: |
+        cat > /tmp/ver.c <<'EOF'
+        #include <libcmdbm.h>
+        #include <stdio.h>
+        int main(void) { printf("%s", CMDBM_GetLibVersion()); return 0; }
+        EOF
+        cc /tmp/ver.c -Isrc -Ilibcmutils/src \
+          -Lbuild -lcmdbm -Lbuild/libcmutils -lcmutils -o /tmp/ver
+        BUILT=$(LD_LIBRARY_PATH=build:build/libcmutils /tmp/ver)
+        TAG='${{ steps.tag.outputs.tag }}'
+        echo "CMDBM_GetLibVersion() = $BUILT"
+        if [ "v$BUILT" != "$TAG" ]; then
+          echo "::error::the library reports $BUILT, the tag is $TAG"
+          exit 1
+        fi
+
+  release:
+    name: Publish the release
+    needs: verify
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        ref: ${{ needs.verify.outputs.tag }}
+        fetch-depth: 0
+
+    - name: Publish
+      env:
+        GH_TOKEN: ${{ github.token }}
+        TAG: ${{ needs.verify.outputs.tag }}
+      run: |
+        if gh release view "$TAG" >/dev/null 2>&1; then
+          echo "::notice::release $TAG exists already, nothing to do"
+          exit 0
+        fi
+        NOTES="doc/release-notes/$TAG.md"
+        if [ -f "$NOTES" ]; then
+          echo "using $NOTES"
+          gh release create "$TAG" --verify-tag \
+            --title "$TAG" --notes-file "$NOTES"
+        else
+          echo "no $NOTES, generating notes from the merged pull requests"
+          gh release create "$TAG" --verify-tag \
+            --title "$TAG" --generate-notes
+        fi
