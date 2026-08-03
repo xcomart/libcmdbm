@@ -2,6 +2,13 @@
 
 A MyBatis-like database mapping library for C.
 
+[![Build and Test](https://github.com/xcomart/libcmdbm/actions/workflows/build-and-test.yml/badge.svg)](https://github.com/xcomart/libcmdbm/actions/workflows/build-and-test.yml)
+[![Release](https://img.shields.io/github/v/release/xcomart/libcmdbm?sort=semver)](https://github.com/xcomart/libcmdbm/releases/latest)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Language: C99](https://img.shields.io/badge/language-C99-blue.svg)](#4-building)
+[![Databases](https://img.shields.io/badge/databases-MariaDB%20%7C%20MySQL%20%7C%20PostgreSQL%20%7C%20SQLite%20%7C%20Oracle%20%7C%20ODBC-blue.svg)](#63-connection-parameters-per-module)
+[![Platforms](https://img.shields.io/badge/platforms-Linux%20%7C%20macOS-lightgrey.svg)](#4-building)
+
 * [1. About](#1-about)
 * [2. Features](#2-features)
 * [3. How it works](#3-how-it-works)
@@ -141,6 +148,27 @@ cmake -B build -DCMAKE_PREFIX_PATH=$PREFIX ...
 Both a shared (`libcmdbm.so`) and a static (`libcmdbm.a`) library are produced.
 The shared library records its DBMS client libraries as dependencies, so
 applications only need `-lcmdbm -lcmutils`.
+
+### Running the tests
+
+Tests are built with `-DBUILD_TESTS=ON` (the default) and are named
+`cmdbm_*`, so they can be run without the tests of the libcmutils submodule:
+
+```sh
+ctest --test-dir build -R cmdbm_ --output-on-failure
+```
+
+| Test | Covers |
+|---|---|
+| `cmdbm_config_test` | JSON configuration: type lookup, which keys reach the module, mapper loading |
+| `cmdbm_mapper_test` | `resultType`, `fetchSize` and cursor iteration |
+| `cmdbm_libinit_test` | `LibraryInit` / `LibraryClear` reference counting |
+| `cmdbm_sqlite_test` | the SQLite module end to end against a real database file |
+
+The first three run against a mock DBMS module ([test/mockdb.c](test/mockdb.c))
+and need no database at all; the SQLite test is skipped when
+`SUPPORT_SQLITE` is off. The modules of the client/server databases have no
+automated coverage — they need a server to talk to.
 
 ### Windows
 
@@ -735,7 +763,9 @@ src/            core: context, database, session, connection, mapper, sqlbuild
 modules/        DBMS modules: cmdbm_mysql.c, cmdbm_pgsql.c, cmdbm_sqlite.c,
                 cmdbm_oracle.c, cmdbm_odbc.c
 data/           sample configuration, sample sqlmap and DTDs
+test/           test suite, with a mock DBMS module and its mapper/config data
 libcmutils/     git submodule — base utility library (JSON, XML, pool, log, …)
+.github/        CI workflow building and testing on Linux and macOS
 CMakeLists.txt  build definition
 VERSION         library version, read at configure time
 ```

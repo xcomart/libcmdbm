@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mapper namespace="t">
+    <select id="selValue" resultType="value">
+        select id, name from t_mock
+    </select>
+    <select id="selMap">
+        select id, name from t_mock
+    </select>
+    <select id="selFetch" fetchSize="50">
+        select id, name from t_mock
+    </select>
+    <select id="selBadFetch" fetchSize="abc">
+        select id, name from t_mock
+    </select>
+    <select id="selKeyFetch" fetchSize="50">
+        <selectKey keyProperty="k" order="AFTER">select 1</selectKey>
+        select id, name from t_mock
+    </select>
+</mapper>
