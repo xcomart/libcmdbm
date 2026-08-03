@@ -966,7 +966,7 @@ SQL text, the result — is chosen in the configuration file instead, see
 
 ## 11. Known issues and limitations
 
-Current state of version 0.1.2 — worth knowing before you file a bug:
+Current state of version 0.2.0 — worth knowing before you file a bug:
 
 * **OUT parameters are unverified on Oracle and ODBC.** `#{…, mode=out}` works
   and is covered by the integration tests on MySQL/MariaDB and PostgreSQL. The
